@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>반려견 관상 🐶</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="반려견 관상">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<meta name="description" content="사진 한 장으로 알아보는 반려견 기질 분석 앱">
+<meta property="og:title" content="반려견 관상 🐶">
+<meta property="og:description" content="사진 한 장으로 알아보는 반려견 기질 분석">
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js', { scope: './' })
+    .then(() => console.log('SW 등록 완료'))
+    .catch(e => console.log('SW 오류:', e));
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+:root {
+  --bg:#0d1117; --card:#151c25; --card2:#1c2533;
+  --accent:#d4974a; --accent2:#e8b870; --accent3:#f5d490;
+  --blue:#3d7fc4; --blue2:#5a9ee0;
+  --text:#f0ece0; --text2:#b0a890; --text3:#706850;
+  --red:#e07060; --green:#60c090;
+  --radius:20px; --shadow:0 8px 40px rgba(0,0,0,0.5);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 20% 20%,rgba(61,127,196,.10) 0%,transparent 60%),
+  radial-gradient(ellipse at 80% 80%,rgba(212,151,74,.08) 0%,transparent 60%)}
+.app-wrap{max-width:480px;margin:0 auto;padding:0 0 80px}
+/* HEADER */
+.app-header{text-align:center;padding:40px 24px 24px}
+.app-header::after{content:'';display:block;width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);margin:18px auto 0}
+.emoji{font-size:2.6rem;display:block;margin-bottom:10px;animation:floatY 3s ease-in-out infinite}
+.app-header h1{font-family:'Noto Serif KR',serif;font-size:1.9rem;font-weight:900;
+  background:linear-gradient(135deg,var(--accent3),var(--accent),var(--blue2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.app-header p{font-size:.82rem;color:var(--text2);margin-top:6px}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+/* STEP BAR */
+.step-bar{display:flex;align-items:center;padding:0 24px 28px}
+.sdot{width:28px;height:28px;border-radius:50%;background:var(--card2);border:2px solid var(--text3);
+  display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;
+  color:var(--text3);transition:all .4s;flex-shrink:0}
+.sdot.active{background:var(--accent);border-color:var(--accent);color:#1a0e00}
+.sdot.done{background:var(--blue);border-color:var(--blue);color:#fff}
+.sline{flex:1;height:2px;background:var(--text3);transition:background .4s;min-width:8px}
+.sline.done{background:var(--blue)}
+/* SCREEN */
+.screen{display:none;padding:0 20px}
+.screen.active{display:block;animation:fadeUp .45s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+/* CARD */
+.card{background:var(--card);border-radius:var(--radius);padding:24px;margin-bottom:16px;
+  border:1px solid rgba(212,151,74,.1);box-shadow:var(--shadow)}
+.ctitle{font-family:'Noto Serif KR',serif;font-size:1.05rem;font-weight:700;color:var(--accent2);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.ctitle .tag{font-size:.65rem;font-weight:700;background:var(--blue);color:#fff;
+  padding:2px 8px;border-radius:20px;font-family:'Noto Sans KR',sans-serif}
+.sub{font-size:.8rem;color:var(--text2);line-height:1.6;margin-bottom:16px}
+/* UPLOAD */
+.upload-zone{border:2px dashed rgba(212,151,74,.35);border-radius:var(--radius);
+  padding:52px 20px;text-align:center;cursor:pointer;transition:all .3s;margin-bottom:16px}
+.upload-zone:hover{border-color:var(--accent);background:rgba(212,151,74,.04)}
+.upload-zone .ico{font-size:3rem;display:block;margin-bottom:14px}
+.upload-zone p{font-size:.88rem;color:var(--text2);line-height:1.7}
+.upload-zone p strong{color:var(--accent)}
+#fileInput{display:none}
+.preview-wrap{display:none;text-align:center;margin-bottom:16px}
+.preview-wrap img{width:100%;max-height:280px;object-fit:cover;border-radius:var(--radius);
+  border:2px solid rgba(212,151,74,.2)}
+.change-btn{font-size:.78rem;color:var(--text3);cursor:pointer;margin-top:8px;
+  display:inline-block;text-decoration:underline}
+/* ANALYZING */
+.analyzing{display:none;text-align:center;padding:28px 0}
+.analyzing.show{display:block}
+.spinner{width:50px;height:50px;border:3px solid rgba(212,151,74,.15);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.asteps{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.astep{font-size:.82rem;color:var(--text3);transition:color .3s}
+.astep.active{color:var(--accent2);font-weight:600}
+.astep.done{color:var(--green)}
+.astep.done::before{content:'✓ '}
+/* BADGES */
+.badge-blue{display:inline-block;background:linear-gradient(135deg,var(--blue),var(--blue2));
+  color:#fff;font-family:'Noto Serif KR',serif;font-size:1.5rem;font-weight:700;
+  padding:12px 28px;border-radius:40px;margin:8px 0 14px;box-shadow:0 4px 20px rgba(61,127,196,.35)}
+.badge-gold{display:inline-block;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#1a0e00;font-family:'Noto Serif KR',serif;font-size:1.4rem;font-weight:700;
+  padding:12px 28px;border-radius:40px;margin:8px 0 14px;box-shadow:0 4px 20px rgba(212,151,74,.35)}
+.summary-text{font-size:.9rem;color:var(--text2);line-height:1.75;margin-bottom:14px}
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{background:rgba(212,151,74,.12);border:1px solid rgba(212,151,74,.3);
+  color:var(--accent2);font-size:.75rem;font-weight:700;padding:4px 12px;border-radius:20px}
+.chip.p{background:rgba(61,127,196,.15);border-color:rgba(61,127,196,.4);color:var(--blue2)}
+/* METRICS */
+.metrics-box{background:rgba(0,0,0,.25);border-radius:10px;padding:12px 14px;
+  font-size:.72rem;color:var(--text3);line-height:2;font-family:monospace;
+  white-space:pre-wrap;display:none;margin-top:10px}
+.metrics-toggle{font-size:.72rem;color:var(--text3);cursor:pointer;
+  text-decoration:underline;display:inline-block;margin-top:12px}
+/* COMPARE */
+.compare-box{background:rgba(61,127,196,.08);border:1px solid rgba(61,127,196,.25);
+  border-radius:12px;padding:14px 16px;font-size:.85rem;color:var(--text2);
+  line-height:1.6;margin-top:14px}
+.compare-box strong{color:var(--blue2)}
+/* OHAENG BADGE */
+.ohaeng{display:inline-block;font-size:.78rem;font-weight:900;color:#fff;
+  background:linear-gradient(135deg,#1db954,#0e8c3a);border:1.5px solid #25d567;
+  padding:4px 12px;border-radius:20px;margin-left:8px;font-family:'Noto Sans KR',sans-serif;
+  box-shadow:0 0 10px rgba(29,185,84,.5);letter-spacing:.05em;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+/* QUESTIONS */
+.q-num{font-size:.7rem;font-weight:700;color:var(--accent);letter-spacing:.1em;margin-bottom:6px}
+.q-text{font-size:.95rem;font-weight:600;font-family:'Noto Serif KR',serif;margin-bottom:10px}
+.q-opts{display:flex;flex-direction:column;gap:8px}
+.qbtn{background:var(--card2);border:1.5px solid rgba(212,151,74,.12);border-radius:10px;
+  padding:11px 14px;color:var(--text);font-size:.84rem;cursor:pointer;transition:all .2s;
+  text-align:left;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:10px;width:100%}
+.qbtn:hover{border-color:var(--accent);background:rgba(212,151,74,.06)}
+.qbtn.sel{border-color:var(--accent);background:rgba(212,151,74,.12);color:var(--accent2);font-weight:600}
+.qbtn .qkey{width:22px;height:22px;border-radius:50%;background:rgba(212,151,74,.15);
+  color:var(--accent);font-size:.72rem;font-weight:800;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.qbtn.sel .qkey{background:var(--accent);color:#1a0e00}
+.qdiv{height:1px;background:rgba(212,151,74,.08);margin:14px 0}
+.prog-wrap{margin:14px 0 6px}
+.prog-bg{background:var(--card2);border-radius:4px;height:4px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--accent));
+  border-radius:4px;transition:width .4s}
+.prog-label{font-size:.72rem;color:var(--text3);margin-top:4px;text-align:right}
+/* COMPAT */
+.compat-pair{display:flex;justify-content:center;align-items:center;gap:12px;margin:8px 0 4px}
+.pair-badge{background:rgba(61,127,196,.2);border:1px solid rgba(61,127,196,.4);
+  color:var(--blue2);font-weight:700;padding:4px 12px;border-radius:20px;font-size:.8rem}
+.compat-score-wrap{text-align:center;padding:18px 0 12px}
+.cscore{font-family:'Noto Serif KR',serif;font-size:3.5rem;font-weight:900;line-height:1}
+.cscore.good{color:var(--green)}.cscore.normal{color:var(--accent)}.cscore.caution{color:var(--red)}
+.clabel{font-size:.8rem;color:var(--text2);margin-top:4px;letter-spacing:.1em}
+.clines{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.cline{display:flex;align-items:flex-start;gap:10px;font-size:.86rem;line-height:1.6;color:var(--text2)}
+.cline::before{content:'•';color:var(--accent);flex-shrink:0;margin-top:2px}
+/* PRODUCTS */
+.pcard{background:var(--card2);border-radius:16px;padding:18px;margin-bottom:14px;
+  border:1px solid rgba(212,151,74,.1);display:flex;gap:16px;align-items:flex-start}
+.pimg{width:80px;height:80px;border-radius:12px;background:linear-gradient(135deg,var(--card),var(--card2));
+  display:flex;align-items:center;justify-content:center;font-size:2.2rem;
+  flex-shrink:0;border:1px solid rgba(212,151,74,.15);overflow:hidden}
+.pinfo{flex:1}
+.pcat{font-size:.65rem;font-weight:700;color:var(--blue2);letter-spacing:.1em;margin-bottom:4px}
+.pname{font-size:.92rem;font-weight:700;color:var(--text);margin-bottom:10px}
+.cbtn{display:inline-flex;align-items:center;gap:6px;
+  background:linear-gradient(135deg,#e8431a,#ff6b35);color:#fff;
+  font-size:.78rem;font-weight:700;padding:7px 14px;border-radius:8px;
+  text-decoration:none;transition:opacity .2s}
+.cbtn:hover{opacity:.85}
+/* BUTTONS */
+.btn{width:100%;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;font-weight:700;
+  padding:16px;border-radius:14px;border:none;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn-gold{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0e00;
+  box-shadow:0 4px 20px rgba(212,151,74,.3)}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(212,151,74,.4)}
+.btn-gold:disabled{background:var(--card2);color:var(--text3);box-shadow:none;cursor:not-allowed;transform:none}
+.btn-blue{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+  box-shadow:0 4px 20px rgba(61,127,196,.3)}
+.btn-blue:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(61,127,196,.4)}
+.btn-ghost{background:transparent;color:var(--text2);border:1.5px solid rgba(255,255,255,.1)}
+.btn-ghost:hover{border-color:var(--text3);color:var(--text)}
+.warn{font-size:.8rem;color:var(--red);text-align:center;margin-top:8px}
+.reset-wrap{text-align:center;padding:8px 0 16px}
+.reset-link{font-size:.78rem;color:var(--text3);cursor:pointer;text-decoration:underline}
+.reset-link:hover{color:var(--text2)}
+canvas#cv{display:none}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="app-wrap">
+
+<header class="app-header">
+  <span class="emoji">🐶</span>
+  <h1>반려견 관상</h1>
+  <p>사진 한 장으로 알아보는 기질 분석</p>
+</header>
+
+<div class="step-bar" id="stepBar">
+  <div class="sdot active" id="d1">1</div><div class="sline" id="l1"></div>
+  <div class="sdot" id="d2">2</div><div class="sline" id="l2"></div>
+  <div class="sdot" id="d3">3</div><div class="sline" id="l3"></div>
+  <div class="sdot" id="d4">4</div><div class="sline" id="l4"></div>
+  <div class="sdot" id="d5">5</div><div class="sline" id="l5"></div>
+  <div class="sdot" id="d6">6</div>
+</div>
+
+<!-- ══ STEP 1: 업로드 ══ -->
+<section class="screen active" id="s1">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 1</span> 사진 업로드</div>
+    <p class="sub">반려견 정면 얼굴이 잘 보이는 사진을 올려주세요. 눈·귀·얼굴형·주둥이를 자동으로 분석합니다.</p>
+    <div class="preview-wrap" id="prevWrap">
+      <img id="prevImg" src="" alt="미리보기">
+      <span class="change-btn" onclick="document.getElementById('fileInput').click()">다른 사진으로 바꾸기</span>
+    </div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <span class="ico">📷</span>
+      <p><strong>탭하여 사진 선택</strong><br>반려견 정면 사진을 올려주세요</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/*">
+    <div class="analyzing" id="analyzing">
+      <div class="spinner"></div>
+      <p style="font-size:.85rem;color:var(--accent2);font-weight:600">관상 분석 중...</p>
+      <div class="asteps">
+        <div class="astep" id="as1">얼굴 비율 측정</div>
+        <div class="astep" id="as2">눈 열림 정도 계산</div>
+        <div class="astep" id="as3">눈 간격 분석</div>
+        <div class="astep" id="as4">귀 크기 추정</div>
+        <div class="astep" id="as5">주둥이 길이 분석</div>
+        <div class="astep" id="as6">5유형 점수 산출</div>
+      </div>
+    </div>
+  </div>
+  <p class="warn" id="uploadWarn">사진을 먼저 업로드해야 분석을 시작할 수 있습니다.</p>
+  <button class="btn btn-gold" id="btnStart" onclick="startAnalysis()" disabled>사진 분석 시작하기</button>
+  <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
+</section>
+
+<!-- ══ STEP 2: 사진 결과 ══ -->
+<section class="screen" id="s2">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 2</span> 사진 관상 결과</div>
+    <div style="text-align:center">
+      <p style="font-size:.78rem;color:var(--text3);margin-bottom:4px">사진 분석 기반 성향</p>
+      <div class="badge-blue" id="r2type">-</div>
+      <p style="font-size:.82rem;color:var(--text2)" id="r2liner">-</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">📸 관상 분석</div>
+    <p class="summary-text" id="r2desc">-</p>
+    <p style="font-size:.75rem;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:.05em">주요 판정 지표</p>
+    <div class="chips" id="r2chips"></div>
+    <span class="metrics-toggle" onclick="toggleM()">▸ 상세 수치 보기</span>
+    <div class="metrics-box" id="mbox"></div>
+  </div>
+  <button class="btn btn-gold" onclick="goTo(3)">행동 질문으로 실제 성향 확인하기 →</button>
+  <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
+</section>
+
+<!-- ══ STEP 3: 질문 ══ -->
+<section class="screen" id="s3">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 3</span> 행동 질문</div>
+    <p class="sub">평소 행동을 가장 잘 표현하는 답을 선택해 주세요.</p>
+    <div class="prog-wrap">
+      <div class="prog-bg"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+      <p class="prog-label" id="progLabel">0 / 5 완료</p>
+    </div>
+  </div>
+  <div id="qContainer"></div>
+  <button class="btn btn-gold" id="btnType" onclick="goToType()" disabled>10가지 오행 성향 보기 →</button>
+  <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
+</section>
+
+<!-- ══ STEP 4: 성향 결과 ══ -->
+<section class="screen" id="s4">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 4</span> 오행 성향 결과</div>
+    <div style="text-align:center">
+      <p style="font-size:.78rem;color:var(--text3);margin-bottom:4px">행동 기반 실제 성향</p>
+      <div class="badge-gold" id="r4type">-</div>
+      <p style="font-size:.82rem;color:var(--text2)" id="r4liner">-</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">📖 성향 상세 설명</div>
+    <p class="summary-text" id="r4desc">-</p>
+    <div class="compare-box" id="r4compare">-</div>
+  </div>
+  <button class="btn btn-blue" onclick="goTo(5)">궁합 보기 →</button>
+  <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
+</section>
+
+<!-- ══ STEP 5: 궁합 ══ -->
+<section class="screen" id="s5">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 5</span> 궁합 결과</div>
+    <div id="cMyType"></div>
+  </div>
+  <div id="cContainer"></div>
+  <button class="btn btn-gold" onclick="goTo(6)">추천 아이템 보기 →</button>
+  <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
+</section>
+
+<!-- ══ STEP 6: 상품 ══ -->
+<section class="screen" id="s6">
+  <div class="card">
+    <div class="ctitle"><span class="tag">STEP 6</span> 추천 아이템</div>
+    <p class="sub" id="pSub">성향에 맞는 아이템을 추천해 드립니다.</p>
+    <p id="pPartners" style="display:none;font-size:0.72rem;color:var(--text3);line-height:1.6;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">이 게시물은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.</p>
+  </div>
+  <div id="pContainer"></div>
+  <button class="btn btn-ghost" onclick="resetApp()">🔄 처음부터 다시하기</button>
+</section>
+
+</div><!-- /app-wrap -->
+
+<script>
+// ════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════
+
+// 사진 분석 5유형 데이터
+const PHOTO_DATA = {
+  개척형: {
+    oneliner: '호기심 넘치고 먼저 탐색하는 관상',
+    desc: '개척형 반려견은 주변 환경에 대한 호기심이 강하게 드러나는 관상이다. 눈이 또렷하게 열려 있고 주둥이가 길어 탐색하려는 기운이 느껴진다. 가만히 있기보다 먼저 다가가 확인하려는 분위기를 가지고 있다. 새로운 공간이나 변화에 대한 거부감이 적고 자극을 받아들이는 힘이 강한 성향으로 해석된다.',
+  },
+  적응형: {
+    oneliner: '균형 잡힌 얼굴에서 유연함이 드러나는 관상',
+    desc: '적응형 반려견은 상황에 맞게 행동을 조절하는 유연한 기질이 얼굴에서 드러나는 관상이다. 얼굴형이 균형적이고 눈이 과하지 않게 열려 있어 안정감이 느껴진다. 극단적으로 활발하거나 소극적이지 않고 환경에 따라 자연스럽게 적응하는 모습을 보인다.',
+  },
+  활력형: {
+    oneliner: '에너지 넘치고 입이 활짝 열린 관상',
+    desc: '활력형 반려견은 에너지가 높고 활동적인 기질이 얼굴에서 드러나는 관상이다. 입이 활짝 열려 있고 눈이 크게 열려 있어 생동감이 넘친다. 움직이는 물체나 자극에 강하게 반응하며 놀이와 활동에 대한 욕구가 매우 강한 성향으로 해석된다.',
+  },
+  안정형: {
+    oneliner: '둥글고 차분한 얼굴에서 안정감이 드러나는 관상',
+    desc: '안정형 반려견은 차분하고 여유로운 기질이 얼굴에서 드러나는 관상이다. 얼굴형이 둥글고 입이 편안하게 닫혀 있어 느긋한 인상을 준다. 급격한 변화보다는 익숙한 환경과 루틴을 선호하는 성향으로 해석된다.',
+  },
+  경계형: {
+    oneliner: '눈매가 긴장되고 신중함이 드러나는 관상',
+    desc: '경계형 반려견은 신중하고 방어적인 기질이 얼굴에서 드러나는 관상이다. 눈매가 좁고 긴장되어 있어 주변을 조심스럽게 살피는 인상을 준다. 낯선 상황에서 바로 다가가기보다 거리를 두고 관찰하려는 성향이 강한 것으로 해석된다.',
+  },
+};
+
+// 10성향 행동 기반 데이터
+const REAL_DATA = {
+  개척형: {
+    oh:'양목',
+    liner:'탐색 욕구가 강하고 먼저 움직이는 성향',
+    desc:'개척형 반려견은 새로운 환경에 대한 호기심이 매우 강한 성향이다. 산책 중에도 끊임없이 냄새를 맡으며 이동하고, 익숙한 길보다 새로운 경로에 더 큰 흥미를 보인다. 집 안에서도 소리나 변화에 빠르게 반응하며 직접 확인하려는 행동이 많다. 가만히 있기보다 움직이며 환경을 탐색하려는 특징이 강하다. 다양한 산책과 자극이 제공될 때 가장 안정적인 상태를 유지한다.'
+  },
+  적응형: {
+    oh:'음목',
+    liner:'환경에 맞게 자연스럽게 행동을 조절하는 성향',
+    desc:'적응형 반려견은 상황에 따라 행동을 유연하게 바꾸는 균형 잡힌 성향이다. 새로운 사람이나 환경에서도 과하게 흥분하거나 위축되지 않고 주변을 살피며 잘 적응한다. 보호자의 생활 패턴에도 잘 맞추며 다양한 환경에서 무난하게 지낸다. 극단적인 반응이 적고 안정적인 흐름을 유지하는 특징이 있다.'
+  },
+  활력형: {
+    oh:'양화',
+    liner:'에너지가 높고 활동량이 많은 성향',
+    desc:'활력형 반려견은 에너지가 매우 높고 활동량이 많은 성향이다. 산책 시 빠르게 움직이며 뛰거나 달리는 것을 좋아하고, 장난감이나 소리에 강하게 반응한다. 놀이 욕구가 매우 크며 활동이 부족하면 짖음이나 과잉 행동으로 에너지를 표출하기도 한다. 충분한 운동과 놀이가 반드시 필요한 유형이다.'
+  },
+  교감형: {
+    oh:'음화',
+    liner:'보호자와의 관계를 가장 중요하게 여기는 성향',
+    desc:'교감형 반려견은 보호자와의 정서적 연결을 가장 중요하게 여긴다. 보호자 곁에 머무르려 하고 눈을 맞추거나 몸을 기대며 교류하려는 행동이 많다. 혼자 있는 시간을 힘들어할 수 있으며 보호자의 상태에 민감하게 반응한다. 안정적인 애착 관계가 형성될 때 가장 편안함을 느낀다.'
+  },
+  집착형: {
+    oh:'양토',
+    liner:'특정 대상과 루틴에 강하게 몰입하는 성향',
+    desc:'집착형 반려견은 특정 대상이나 행동에 강하게 몰입하는 성향이다. 보호자, 장난감, 간식 등에 대한 집착이 강하고 반복 행동을 보이는 경우가 많다. 산책 경로나 생활 루틴이 바뀌면 불안해하거나 예민하게 반응할 수 있다. 익숙한 환경과 일정한 패턴 속에서 안정감을 느낀다.'
+  },
+  안정형: {
+    oh:'음토',
+    liner:'차분하고 자극에 크게 흔들리지 않는 성향',
+    desc:'안정형 반려견은 전반적으로 차분하고 여유로운 성향이다. 활동보다는 휴식과 안정된 상태를 선호하며, 산책에서도 급하게 움직이기보다 여유롭게 주변을 살핀다. 환경 변화에도 크게 흔들리지 않고 일정한 리듬을 유지하는 특징이 있다. 조용하고 안정적인 환경에서 가장 편안함을 느낀다.'
+  },
+  지배형: {
+    oh:'양금',
+    liner:'주도권과 영역을 중요하게 여기는 성향',
+    desc:'지배형 반려견은 주도권을 가지려는 성향이 강하다. 산책 중 방향을 스스로 정하려 하거나 다른 개와의 관계에서 우위를 점하려는 행동을 보인다. 자신의 공간이나 자리를 지키려는 의식이 강하며 통제에 저항하는 모습도 나타날 수 있다. 일관된 기준과 훈련이 필요한 유형이다.'
+  },
+  경계형: {
+    oh:'음금',
+    liner:'외부 자극에 민감하고 신중하게 반응하는 성향',
+    desc:'경계형 반려견은 낯선 사람이나 소리, 환경 변화에 민감하게 반응한다. 산책 중에도 주변을 예민하게 살피며 갑작스러운 자극에 쉽게 긴장한다. 처음에는 거리를 두지만 시간이 지나면 천천히 적응한다. 안정적인 환경과 충분한 적응 시간이 필요하다.'
+  },
+  유연형: {
+    oh:'양수',
+    liner:'독립적이면서도 상황에 맞게 자연스럽게 적응하는 성향',
+    desc:'유연형 반려견은 보호자에게 과하게 의존하지 않고 혼자 있는 시간도 편안하게 보내는 성향이다. 환경 변화에도 스트레스를 크게 받지 않으며 상황에 맞게 자연스럽게 적응한다. 필요할 때만 교감하고 그 외에는 안정적으로 자신의 리듬을 유지하는 특징이 있다.'
+  },
+  관찰형: {
+    oh:'음수',
+    liner:'행동보다 관찰을 먼저 하는 신중한 성향',
+    desc:'관찰형 반려견은 즉각적으로 반응하기보다 먼저 상황을 살피는 성향이다. 산책 중에도 멈춰서 주변을 관찰하는 행동이 많고 새로운 환경에서는 적응 속도가 느린 편이다. 자극에 신중하게 반응하며 안정된 환경에서는 매우 차분한 모습을 보인다.'
+  },
+};
+
+// 궁합 데이터
+const COMPAT_DATA = {
+  개척형: { good:['활력형','교감형','유연형'],       normal:['적응형','안정형','관찰형'],       bad:['지배형','경계형','집착형'] },
+  적응형: { good:['안정형','유연형','교감형'],        normal:['개척형','관찰형','활력형'],       bad:['지배형','집착형','경계형'] },
+  활력형: { good:['개척형','교감형','활력형'],        normal:['적응형','안정형','유연형'],       bad:['지배형','경계형','집착형'] },
+  교감형: { good:['활력형','적응형','교감형'],        normal:['개척형','안정형','유연형'],       bad:['경계형','지배형','집착형'] },
+  집착형: { good:['안정형','관찰형','집착형'],        normal:['적응형','유연형','교감형'],       bad:['개척형','활력형','지배형'] },
+  안정형: { good:['적응형','집착형','관찰형'],        normal:['개척형','교감형','유연형'],       bad:['활력형','지배형','경계형'] },
+  지배형: { good:['관찰형','안정형'],                 normal:['적응형','유연형'],                bad:['개척형','활력형','교감형','집착형','경계형'] },
+  경계형: { good:['관찰형','안정형'],                 normal:['적응형','유연형'],                bad:['개척형','활력형','교감형','집착형','지배형'] },
+  유연형: { good:['개척형','적응형','안정형'],        normal:['교감형','관찰형','유연형'],       bad:['지배형','집착형','경계형'] },
+  관찰형: { good:['안정형','집착형','경계형'],        normal:['적응형','유연형','지배형'],       bad:['개척형','활력형','교감형'] },
+};
+const COMPAT_TEXT = {
+  good:  ['생활 리듬이 자연스럽게 맞는 관계입니다.','같은 공간에서도 스트레스 없이 안정적으로 지낼 수 있습니다.','특별한 환경 조정 없이도 편안한 상태가 유지됩니다.'],
+  normal:['생활 방식에 약간의 차이가 있는 관계입니다.','함께 지내는 데 큰 문제는 없으며 자연스럽게 적응합니다.','시간이 지나면서 편안한 관계로 자리잡을 수 있습니다.'],
+  bad:   ['생활 리듬과 반응 방식에 차이가 있는 관계입니다.','함께 지낼 때 스트레스가 생길 수 있습니다.','처음에는 분리된 공간에서 지내게 하고, 점차 함께 있는 시간을 늘려주는 것이 좋습니다.'],
+};
+
+// 행동 질문 (5개 → 10성향 모두 커버하도록 확장)
+const QUESTIONS = [
+  {id:'Q1', cat:'에너지', text:'평소 활동량이 어느 정도인가요?', opts:[
+    {k:'A', t:'산책과 놀이를 매우 좋아하고 활동량이 많다'},
+    {k:'B', t:'상황에 따라 활동성이 달라진다'},
+    {k:'C', t:'비교적 차분하고 움직임이 적은 편이다'}
+  ]},
+  {id:'Q2', cat:'사회성', text:'낯선 사람이나 강아지를 만났을 때 어떻게 반응하나요?', opts:[
+    {k:'A', t:'사람이나 다른 개에게 먼저 다가간다'},
+    {k:'B', t:'천천히 상황을 보며 접근한다'},
+    {k:'C', t:'낯선 대상에 경계하고 거리를 둔다'}
+  ]},
+  {id:'Q3', cat:'자극 반응', text:'갑작스러운 소리나 자극에 어떻게 반응하나요?', opts:[
+    {k:'A', t:'소리나 움직임에 빠르게 반응한다'},
+    {k:'B', t:'한 번 살펴보고 반응한다'},
+    {k:'C', t:'예민하거나 놀라는 반응이 큰 편이다'}
+  ]},
+  {id:'Q4', cat:'애착', text:'보호자와의 관계는 어떤가요?', opts:[
+    {k:'A', t:'보호자와 항상 함께 있으려 한다'},
+    {k:'B', t:'상황에 따라 적당한 거리를 유지한다'},
+    {k:'C', t:'혼자 있는 것도 비교적 편안해한다'}
+  ]},
+  {id:'Q5', cat:'행동 패턴', text:'행동 방식이 어떤 편인가요?', opts:[
+    {k:'A', t:'즉흥적으로 움직이고 반응이 빠르다'},
+    {k:'B', t:'일정한 생활 패턴을 선호한다'},
+    {k:'C', t:'특정 행동이나 습관을 반복하는 경향이 있다'}
+  ]},
+];
+
+// ── [수정] TYPE_RULES: 10성향 전부 커버
+// 우선순위 순서대로 배치 (위에서 매칭되면 즉시 반환)
+const TYPE_RULES = [
+  // 🔥 활력형: 에너지 높고 반응 빠름
+  { type:'활력형',   c: a => a.Q1==='A' && a.Q3==='A' },
+
+  // ⚔️ 경계형: 낯선 것 경계 + 자극 예민
+  { type:'경계형',   c: a => a.Q2==='C' && a.Q3==='C' },
+
+  // 🌳 개척형: 에너지 높고 즉흥적 탐색
+  { type:'개척형',   c: a => a.Q1==='A' && a.Q5==='A' },
+
+  // 💞 교감형: 보호자 밀착 + 먼저 다가감
+  { type:'교감형',   c: a => a.Q4==='A' && a.Q2==='A' },
+
+  // 💞 교감형 보조: 보호자 밀착 + 즉흥적
+  { type:'교감형',   c: a => a.Q4==='A' && a.Q5==='A' },
+
+  // 🔒 집착형: 반복 습관 + 보호자 밀착
+  { type:'집착형',   c: a => a.Q5==='C' && a.Q4==='A' },
+
+  // 🔒 집착형 보조: 반복 습관 + 패턴 선호
+  { type:'집착형',   c: a => a.Q5==='C' && a.Q1==='C' },
+
+  // 👑 지배형: 사교적 + 반응 빠름 + 혼자도 괜찮음
+  { type:'지배형',   c: a => a.Q2==='A' && a.Q3==='A' && a.Q4==='C' },
+
+  // 💧 유연형: 혼자도 괜찮음 + 살펴보고 반응
+  { type:'유연형',   c: a => a.Q4==='C' && a.Q3==='B' },
+
+  // 💧 유연형 보조: 혼자도 괜찮음 + 패턴 선호
+  { type:'유연형',   c: a => a.Q4==='C' && a.Q5==='B' },
+
+  // 🔭 관찰형: 살펴보고 반응 + 경계 + 차분
+  { type:'관찰형',   c: a => a.Q3==='B' && a.Q2==='C' },
+
+  // 🔭 관찰형 보조: 살펴보고 반응 + 차분
+  { type:'관찰형',   c: a => a.Q3==='B' && a.Q1==='C' },
+
+  // 🌿 적응형: 세 항목 모두 균형
+  { type:'적응형',   c: a => a.Q1==='B' && a.Q2==='B' && a.Q3==='B' },
+
+  // 🌿 적응형 보조: 활동 보통 + 적당한 거리
+  { type:'적응형',   c: a => a.Q1==='B' && a.Q4==='B' },
+];
+
+const PRODUCTS = {
+  개척형:[
+    { cat:'장난감',   name:'터그 장난감 / 테니스공 / 로프 장난감', e:'🎾', url:'https://link.coupang.com/a/ebTH0B' },
+    { cat:'간식',     name:'동결건조 닭가슴살', e:'🍗', url:'https://link.coupang.com/a/ebUYLb' },
+    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+  ],
+  적응형:[
+    { cat:'장난감',   name:'삑삑이 인형 장난감', e:'🧸', url:'https://link.coupang.com/a/ebVgWa' },
+    { cat:'간식',     name:'연어 스틱 간식', e:'🐟', url:'https://link.coupang.com/a/ebX5E7' },
+    { cat:'건강용품', name:'종합 비타민', e:'🌿', url:'https://link.coupang.com/a/ebZJr7' },
+  ],
+  활력형:[
+    { cat:'장난감',   name:'프리스비 / 공 발사기 / 공 장난감', e:'🥏', url:'https://link.coupang.com/a/ebYdGB' },
+    { cat:'간식',     name:'칠면조 육포 / 고단백 간식', e:'🦃', url:'https://link.coupang.com/a/ebYh0y' },
+    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+  ],
+  교감형:[
+    { cat:'장난감',   name:'삑삑이 봉제 인형 장난감', e:'🧸', url:'https://link.coupang.com/a/ebVgWa' },
+    { cat:'간식',     name:'닭가슴살 소프트 간식', e:'🍗', url:'https://link.coupang.com/a/ebYmvY' },
+    { cat:'건강용품', name:'피부·피모 영양제', e:'✨', url:'https://link.coupang.com/a/ebYq06' },
+  ],
+  집착형:[
+    { cat:'장난감',   name:'노즈워크 매트 / 간식 퍼즐 장난감', e:'👃', url:'https://link.coupang.com/a/ebYtNs' },
+    { cat:'간식',     name:'믹스 트릿 간식', e:'🍬', url:'https://link.coupang.com/a/ebYw2w' },
+    { cat:'건강용품', name:'장 건강 유산균', e:'🦠', url:'https://link.coupang.com/a/ebYBhU' },
+  ],
+  안정형:[
+    { cat:'장난감',   name:'고무 씹기 장난감 (콩 타입)', e:'🦷', url:'https://link.coupang.com/a/ebYEs2' },
+    { cat:'간식',     name:'습식 캔 / 부드러운 간식', e:'🥫', url:'https://link.coupang.com/a/ebYGV4' },
+    { cat:'건강용품', name:'종합 면역 영양제', e:'🌿', url:'https://link.coupang.com/a/ebYK4e' },
+  ],
+  지배형:[
+    { cat:'장난감',   name:'터그 장난감 / 로프 장난감', e:'🪢', url:'https://link.coupang.com/a/ebTH0B' },
+    { cat:'간식',     name:'닭안심 육포', e:'🍖', url:'https://link.coupang.com/a/ebYRyh' },
+    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+  ],
+  경계형:[
+    { cat:'장난감',   name:'노즈워크 매트 / 후각 자극 장난감', e:'👃', url:'https://link.coupang.com/a/ebZUq6' },
+    { cat:'간식',     name:'소프트 트릿 (저자극)', e:'🌟', url:'https://link.coupang.com/a/ebYW1F' },
+    { cat:'건강용품', name:'스트레스 완화 영양제', e:'🌸', url:'https://link.coupang.com/a/ebY0uO' },
+  ],
+  유연형:[
+    { cat:'장난감',   name:'인터랙티브 장난감', e:'🤖', url:'https://link.coupang.com/a/ebY4ol' },
+    { cat:'간식',     name:'연어 큐브 간식', e:'🐠', url:'https://link.coupang.com/a/ebY8Ew' },
+    { cat:'건강용품', name:'스트레스 완화 영양제', e:'🌸', url:'https://link.coupang.com/a/ebY0uO' },
+  ],
+  관찰형:[
+    { cat:'장난감',   name:'쿠션형 침대 / 안정형 담요', e:'🛏️', url:'https://link.coupang.com/a/ebZfBg' },
+    { cat:'간식',     name:'저알러지 간식 (연어/오리)', e:'🍖', url:'https://link.coupang.com/a/ebZjxP' },
+    { cat:'건강용품', name:'눈 건강 영양제', e:'👁️', url:'https://link.coupang.com/a/ebZnme' },
+  ],
+};
+
+// ════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════
+let ST = {
+  step:1, photoType:null, metrics:null, scores:null, signals:[],
+  qAnswers:{}, realType:null,
+};
+
+// ════════════════════════════════════════════════════════
+// CANVAS 분석
+// ════════════════════════════════════════════════════════
+function measureImage(imgEl) {
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const W = 320, H = 320;
+  cv.width = W; cv.height = H;
+  ctx.drawImage(imgEl, 0, 0, W, H);
+  const px = ctx.getImageData(0, 0, W, H).data;
+
+  function lum(x, y) {
+    if (x<0||x>=W||y<0||y>=H) return 128;
+    const i = (y*W+x)*4;
+    return px[i]*.299 + px[i+1]*.587 + px[i+2]*.114;
+  }
+
+  const allLums = [];
+  for (let y=0; y<H; y+=2)
+    for (let x=0; x<W; x+=2) allLums.push(lum(x,y));
+  allLums.sort((a,b)=>a-b);
+  const globalMed = allLums[Math.floor(allLums.length/2)];
+  const darkT = globalMed * 0.55;
+
+  const midX = Math.floor(W/2);
+  const midY = Math.floor(H/2);
+
+  // ══ 1. faceWidth / faceHeight ══
+  let fLeft = Math.floor(W*0.05), fRight = Math.floor(W*0.95);
+  const scanY = Math.floor(H * 0.50);
+  for (let x=Math.floor(W*0.05); x<midX; x++) {
+    if (lum(x, scanY) > darkT) { fLeft = x; break; }
+  }
+  for (let x=Math.floor(W*0.95); x>midX; x--) {
+    if (lum(x, scanY) > darkT) { fRight = x; break; }
+  }
+  const faceWidth = Math.max(fRight - fLeft, 60);
+
+  let fTop = Math.floor(H*0.02), fBottom = Math.floor(H*0.97);
+  for (let y=Math.floor(H*0.02); y<midY; y++) {
+    if (lum(midX, y) > darkT) { fTop = y; break; }
+  }
+  for (let y=Math.floor(H*0.97); y>midY; y--) {
+    if (lum(midX, y) > darkT) { fBottom = y; break; }
+  }
+  const faceHeight = Math.max(fBottom - fTop, 60);
+  const faceRatio = +(faceWidth / faceHeight).toFixed(3);
+
+  // ══ 2. 눈 영역 ══
+  const eyeY1 = Math.floor(fTop + faceHeight * 0.25);
+  const eyeY2 = Math.floor(fTop + faceHeight * 0.50);
+  const eyeX1 = Math.floor(fLeft + faceWidth * 0.08);
+  const eyeX2 = Math.floor(fLeft + faceWidth * 0.92);
+
+  const eyeDarkPx = [];
+  for (let y=eyeY1; y<eyeY2; y++)
+    for (let x=eyeX1; x<eyeX2; x++)
+      if (lum(x,y) < darkT) eyeDarkPx.push({x, y});
+
+  let eyeMinX=eyeX2, eyeMaxX=eyeX1, eyeMinY=eyeY2, eyeMaxY=eyeY1;
+  if (eyeDarkPx.length > 10) {
+    for (const p of eyeDarkPx) {
+      if (p.x < eyeMinX) eyeMinX = p.x;
+      if (p.x > eyeMaxX) eyeMaxX = p.x;
+      if (p.y < eyeMinY) eyeMinY = p.y;
+      if (p.y > eyeMaxY) eyeMaxY = p.y;
+    }
+  }
+  const eyeBoxW = Math.max(eyeMaxX - eyeMinX, 1);
+  const eyeBoxH = Math.max(eyeMaxY - eyeMinY, 1);
+  const eyeOpenRatio = +(eyeBoxH / eyeBoxW).toFixed(3);
+
+  // ══ 3. 눈 간격 ══
+  const leftDark  = eyeDarkPx.filter(p => p.x < midX);
+  const rightDark = eyeDarkPx.filter(p => p.x >= midX);
+  function cxOf(pts) { return pts.length ? pts.reduce((s,p)=>s+p.x,0)/pts.length : null; }
+  const lCx = cxOf(leftDark)  ?? (fLeft + faceWidth*0.30);
+  const rCx = cxOf(rightDark) ?? (fLeft + faceWidth*0.70);
+  const innerEyeDistance = Math.abs(rCx - lCx);
+  const eyeDistanceRatio = +(innerEyeDistance / faceWidth).toFixed(3);
+
+  // ══ 4. 귀 높이 ══
+  const earY1  = fTop;
+  const earY2  = Math.floor(fTop + faceHeight * 0.25); // [수정] earY2b → earY2 로 정리
+  const earX1  = Math.floor(fLeft + faceWidth * 0.08);
+  const earX2  = Math.floor(fLeft + faceWidth * 0.92);
+  let earMinY = earY2, earMaxY = earY1;
+  let earDarkCount = 0;
+  for (let y=earY1; y<earY2; y++)
+    for (let x=earX1; x<earX2; x++) {
+      if (lum(x,y) < darkT) {
+        earDarkCount++;
+        if (y < earMinY) earMinY = y;
+        if (y > earMaxY) earMaxY = y;
+      }
+    }
+  const avgEarHeight = earDarkCount > 5 ? Math.max(earMaxY - earMinY, 1) : 0;
+  const earHeightRatio = +(avgEarHeight / faceHeight).toFixed(3);
+
+  // ══ 5. 머즐 길이 ══
+  const muzzleY1 = Math.floor(fTop + faceHeight * 0.50);
+  const muzzleY2 = Math.floor(fTop + faceHeight * 0.90);
+  const muzzleX1 = Math.floor(fLeft + faceWidth * 0.20);
+  const muzzleX2 = Math.floor(fLeft + faceWidth * 0.80);
+  let muzzleMinY = muzzleY2, muzzleMaxY = muzzleY1;
+  let muzzleDarkCount = 0;
+  for (let y=muzzleY1; y<muzzleY2; y++)
+    for (let x=muzzleX1; x<muzzleX2; x++) {
+      if (lum(x,y) < darkT * 0.85) {
+        muzzleDarkCount++;
+        if (y < muzzleMinY) muzzleMinY = y;
+        if (y > muzzleMaxY) muzzleMaxY = y;
+      }
+    }
+  const muzzleLength = muzzleDarkCount > 10 ? Math.max(muzzleMaxY - muzzleMinY, 1) : 0;
+  const muzzleRatio = +(muzzleLength / faceHeight).toFixed(3);
+
+  // ══ 6. 입 상태 ══
+  const mouthY1 = Math.floor(fTop + faceHeight * 0.65);
+  const mouthY2 = Math.floor(fTop + faceHeight * 0.90);
+  const mouthX1 = Math.floor(fLeft + faceWidth * 0.25);
+  const mouthX2 = Math.floor(fLeft + faceWidth * 0.75);
+  let mouthDarkCount = 0;
+  let mouthMinY = mouthY2, mouthMaxY = mouthY1;
+  for (let y=mouthY1; y<mouthY2; y++)
+    for (let x=mouthX1; x<mouthX2; x++) {
+      if (lum(x,y) < darkT * 0.60) {
+        mouthDarkCount++;
+        if (y < mouthMinY) mouthMinY = y;
+        if (y > mouthMaxY) mouthMaxY = y;
+      }
+    }
+  const mouthHeight = mouthDarkCount > 5 ? Math.max(mouthMaxY - mouthMinY, 1) : 0;
+  const mouthOpenRatio = +(mouthHeight / faceHeight).toFixed(3);
+
+  return {
+    faceRatio, eyeOpenRatio, eyeDistanceRatio, earHeightRatio,
+    muzzleRatio, mouthOpenRatio,
+    _faceW: faceWidth, _faceH: faceHeight,
+    _eyeBoxW: eyeBoxW, _eyeBoxH: eyeBoxH,
+  };
+}
+
+function classifyMetrics(m) {
+  let eyeGrade;
+  if      (m.eyeOpenRatio >= 0.34) eyeGrade = 'open';
+  else if (m.eyeOpenRatio >= 0.25) eyeGrade = 'normal';
+  else                              eyeGrade = 'narrow';
+
+  let distGrade;
+  if      (m.eyeDistanceRatio >= 0.26) distGrade = 'wide';
+  else if (m.eyeDistanceRatio >= 0.21) distGrade = 'normal';
+  else                                  distGrade = 'narrow';
+
+  let earGrade;
+  if      (m.earHeightRatio >= 0.32) earGrade = 'large';
+  else if (m.earHeightRatio >= 0.22) earGrade = 'normal';
+  else                                earGrade = 'small';
+
+  let faceGrade;
+  if      (m.faceRatio <= 0.82) faceGrade = 'long';
+  else if (m.faceRatio <= 0.95) faceGrade = 'balanced';
+  else                           faceGrade = 'round';
+
+  let muzzleGrade;
+  if      (m.muzzleRatio >= 0.55) muzzleGrade = 'long';
+  else if (m.muzzleRatio >= 0.40) muzzleGrade = 'normal';
+  else                             muzzleGrade = 'short';
+
+  let mouthGrade;
+  if      (m.mouthOpenRatio >= 0.30) mouthGrade = 'open';
+  else if (m.mouthOpenRatio >= 0.15) mouthGrade = 'normal';
+  else                                mouthGrade = 'closed';
+
+  return { eyeGrade, distGrade, earGrade, faceGrade, muzzleGrade, mouthGrade };
+}
+
+function scorePhoto(g) {
+  const s = { 개척형:0, 적응형:0, 활력형:0, 안정형:0, 경계형:0 };
+
+  if (g.muzzleGrade === 'long')        { s['개척형'] += 1; }
+  else if (g.muzzleGrade === 'normal') { s['적응형'] += 2; }
+  else                                 { s['안정형'] += 1; s['경계형'] += 1; }
+
+  if (g.mouthGrade === 'open')        { s['활력형'] += 4; }
+  else if (g.mouthGrade === 'normal') { s['적응형'] += 1; }
+  else                                { s['경계형'] += 2; s['안정형'] += 1; }
+
+  if (g.eyeGrade === 'open')        { s['활력형'] += 2; }
+  else if (g.eyeGrade === 'normal') { s['적응형'] += 1; }
+  else                              { s['경계형'] += 4; }
+
+  if (g.distGrade === 'wide')        { s['개척형'] += 1; s['활력형'] += 1; }
+  else if (g.distGrade === 'normal') { s['적응형'] += 1; }
+  else                               { s['경계형'] += 3; }
+
+  if (g.faceGrade === 'long')        { s['개척형'] += 1; }
+  else if (g.faceGrade === 'balanced') { s['적응형'] += 2; }
+  else                               { s['안정형'] += 1; }
+
+  if (g.earGrade === 'large')        { s['경계형'] += 2; }
+  else if (g.earGrade === 'normal')  { s['적응형'] += 1; }
+  else                               { s['안정형'] += 1; }
+
+  if (g.mouthGrade === 'open' && g.eyeGrade === 'open')          { s['활력형'] += 2; }
+  if (g.eyeGrade === 'narrow' && g.mouthGrade === 'closed')       { s['경계형'] += 2; }
+  if (g.distGrade === 'narrow' && g.earGrade === 'large')         { s['경계형'] += 2; }
+  if (g.faceGrade === 'round' && g.muzzleGrade === 'short' && g.mouthGrade === 'closed') { s['안정형'] += 2; }
+
+  return s;
+}
+
+const PRIORITY = ['활력형','경계형','적응형','안정형','개척형'];
+
+function resolveType(scores) {
+  const max = Math.max(...Object.values(scores));
+  const tied = Object.keys(scores).filter(t => scores[t] === max);
+  if (tied.length === 1) return tied[0];
+  for (const t of PRIORITY) {
+    if (tied.includes(t)) return t;
+  }
+  return tied[0];
+}
+
+function makeSignals(g) {
+  const eyeMap    = { open:'눈이 크게 열림 (활발형)', normal:'눈 열림 보통', narrow:'눈이 좁고 긴장형' };
+  const distMap   = { wide:'눈 간격 넓음 (사교적)', normal:'눈 간격 보통', narrow:'눈 간격 응축형' };
+  const earMap    = { large:'귀 크고 민감함', normal:'귀 크기 보통', small:'귀 낮고 차분함' };
+  const faceMap   = { long:'긴 얼굴형 (탐색형)', balanced:'균형형 얼굴', round:'둥근 얼굴 (안정형)' };
+  const muzzleMap = { long:'주둥이 길고 탐색적', normal:'주둥이 보통 길이', short:'주둥이 짧고 둥글음' };
+  const mouthMap  = { open:'입이 열려 있음 (활력형)', normal:'입 상태 보통', closed:'입 닫힘 (차분형)' };
+  return [eyeMap[g.eyeGrade], distMap[g.distGrade], earMap[g.earGrade], faceMap[g.faceGrade], muzzleMap[g.muzzleGrade], mouthMap[g.mouthGrade]];
+}
+
+// ════════════════════════════════════════════════════════
+// ANALYSIS FLOW
+// ════════════════════════════════════════════════════════
+function startAnalysis() {
+  document.getElementById('uploadWarn').style.display = 'none';
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('uploadZone').style.display = 'none';
+  document.getElementById('prevWrap').style.display = 'none';
+  document.getElementById('analyzing').classList.add('show');
+
+  const astepIds = ['as1','as2','as3','as4','as5','as6'];
+  let i = 0;
+  function tick() {
+    if (i > 0) {
+      document.getElementById(astepIds[i-1]).classList.remove('active');
+      document.getElementById(astepIds[i-1]).classList.add('done');
+    }
+    if (i < astepIds.length) {
+      document.getElementById(astepIds[i]).classList.add('active');
+      i++;
+      setTimeout(tick, 400 + Math.random()*180);
+    } else {
+      setTimeout(() => runAnalysis(document.getElementById('prevImg')), 300);
+    }
+  }
+  tick();
+}
+
+function runAnalysis(imgEl) {
+  const m  = measureImage(imgEl);
+  const g  = classifyMetrics(m);
+  const sc = scorePhoto(g);
+  const t  = resolveType(sc);
+  const sg = makeSignals(g);
+
+  ST.photoType = t;
+  ST.metrics   = m;
+  ST.scores    = sc;
+  ST.signals   = sg;
+
+  renderPhotoResult();
+  goTo(2);
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════
+function renderPhotoResult() {
+  const t = ST.photoType;
+  const d = PHOTO_DATA[t];
+  const m = ST.metrics;
+  const sc= ST.scores;
+  const g = classifyMetrics(m);
+
+  document.getElementById('r2type').textContent  = t;
+  document.getElementById('r2liner').textContent = d.oneliner;
+  document.getElementById('r2desc').textContent  = d.desc;
+
+  const chips = document.getElementById('r2chips');
+  chips.innerHTML = '';
+  ST.signals.forEach(s => {
+    const el = document.createElement('span');
+    el.className = 'chip';
+    el.textContent = s;
+    chips.appendChild(el);
+  });
+
+  document.getElementById('mbox').textContent =
+`── 원시 수치 ──────────────────────────
+faceRatio        : ${m.faceRatio}
+  (faceWidth/faceHeight)
+  ≤0.82→긴 얼굴형 / 0.83~0.95→균형형 / ≥0.96→둥근 얼굴형
+
+eyeOpenRatio     : ${m.eyeOpenRatio}
+  (eyeHeight/eyeWidth = ${m._eyeBoxH}/${m._eyeBoxW})
+  ≥0.34→크게열림 / 0.25~0.33→보통 / ≤0.24→좁고긴장형
+
+eyeDistanceRatio : ${m.eyeDistanceRatio}
+  (innerEyeDistance/faceWidth)
+  ≥0.26→넓음 / 0.21~0.25→보통 / ≤0.20→응축형
+
+earHeightRatio   : ${m.earHeightRatio}
+  (avgEarHeight/faceHeight)
+  ≥0.32→귀큼 / 0.22~0.31→보통 / ≤0.21→차분형
+
+muzzleRatio      : ${m.muzzleRatio}
+  (muzzleLength/faceHeight) ← 반려견 핵심 지표
+  ≥0.55→주둥이 길음 / 0.40~0.54→보통 / ≤0.39→짧음
+
+mouthOpenRatio   : ${m.mouthOpenRatio}
+  (mouthHeight/faceHeight)
+  ≥0.30→입 열림 / 0.15~0.29→보통 / ≤0.14→닫힘
+
+── 등급 결과 ──────────────────────────
+눈열림:${g.eyeGrade}  눈간격:${g.distGrade}  귀크기:${g.earGrade}
+얼굴형:${g.faceGrade}  주둥이:${g.muzzleGrade}  입상태:${g.mouthGrade}
+
+── 유형 점수 ──────────────────────────
+개척:${sc['개척형']}  적응:${sc['적응형']}  활력:${sc['활력형']}  안정:${sc['안정형']}  경계:${sc['경계형']}`;
+}
+
+function toggleM() {
+  const b = document.getElementById('mbox');
+  const t = document.querySelector('.metrics-toggle');
+  if (b.style.display==='none'||!b.style.display) {
+    b.style.display='block'; t.textContent='▾ 상세 수치 숨기기';
+  } else {
+    b.style.display='none'; t.textContent='▸ 상세 수치 보기';
+  }
+}
+
+function renderTypeResult() {
+  const t = ST.realType;
+  const d = REAL_DATA[t];
+  document.getElementById('r4type').innerHTML  = t + `<span class="ohaeng">${d.oh}</span>`;
+  document.getElementById('r4liner').textContent = d.liner;
+  document.getElementById('r4desc').textContent  = d.desc;
+
+  // [수정] 사진 유형과 행동 유형이 같을 때 / 다를 때 문구 분기
+  const compareEl = document.getElementById('r4compare');
+  if (ST.photoType === ST.realType) {
+    compareEl.innerHTML =
+      `사진 관상(<strong>${ST.photoType}</strong>)과 행동 기반 성향(<strong>${t}</strong>)이 일치합니다. 겉과 속이 같은 솔직한 성격입니다.`;
+  } else {
+    compareEl.innerHTML =
+      `사진상으로는 <strong>${ST.photoType}</strong>으로 보였지만 실제 행동 기준으로는 <strong>${t}</strong>에 가깝습니다.`;
+  }
+}
+
+function renderCompat() {
+  const type = ST.realType;
+  const data = COMPAT_DATA[type] || { good:[], normal:[], bad:[] };
+
+  document.getElementById('cMyType').innerHTML =
+    `<div style="text-align:center;padding:4px 0 8px">
+       <p style="font-size:.75rem;color:var(--text3);margin-bottom:6px">현재 성향 기준</p>
+       <div class="badge-gold" style="font-size:1.2rem;padding:10px 24px">${type}</div>
+       <p style="font-size:.8rem;color:var(--text2);margin-top:8px">아래 궁합표는 <strong style="color:var(--accent2)">${type}</strong> 기준으로 계산됩니다.</p>
+     </div>`;
+
+  const con = document.getElementById('cContainer');
+  con.innerHTML = '';
+
+  const sections = [
+    { key:'good',   score:'90점', icon:'✨', label:'좋음', borderColor:'#4caf82', bgColor:'rgba(76,175,130,.10)'  },
+    { key:'normal', score:'70점', icon:'🌿', label:'보통', borderColor:'#d4974a', bgColor:'rgba(212,151,74,.10)' },
+    { key:'bad',    score:'40점', icon:'⚠️', label:'주의', borderColor:'#e07060', bgColor:'rgba(224,112,96,.10)'  },
+  ];
+
+  sections.forEach(sec => {
+    const list  = data[sec.key] || [];
+    const texts = COMPAT_TEXT[sec.key] || [];
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = `border-color:${sec.borderColor};border-width:1.5px`;
+
+    const head = document.createElement('div');
+    head.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:14px`;
+    head.innerHTML =
+      `<div style="display:flex;align-items:center;gap:10px">
+         <span style="font-size:1.3rem">${sec.icon}</span>
+         <p style="font-family:'Noto Serif KR',serif;font-size:1rem;font-weight:700;color:var(--text)">${sec.label}</p>
+       </div>
+       <div style="font-family:'Noto Serif KR',serif;font-size:2.4rem;font-weight:900;color:${sec.borderColor};line-height:1;letter-spacing:-1px">${sec.score}</div>`;
+    card.appendChild(head);
+
+    const tagWrap = document.createElement('div');
+    tagWrap.style.cssText = `display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px`;
+    if (list.length) {
+      list.forEach(t => {
+        const tag = document.createElement('span');
+        tag.style.cssText =
+          `background:${sec.bgColor};border:1px solid ${sec.borderColor};` +
+          `color:var(--text);font-size:.82rem;font-weight:700;` +
+          `padding:5px 14px;border-radius:20px`;
+        tag.textContent = t;
+        tagWrap.appendChild(tag);
+      });
+    } else {
+      const empty = document.createElement('span');
+      empty.style.cssText = `font-size:.8rem;color:var(--text3)`;
+      empty.textContent = '해당 없음';
+      tagWrap.appendChild(empty);
+    }
+    card.appendChild(tagWrap);
+
+    const divider = document.createElement('div');
+    divider.style.cssText = `height:1px;background:rgba(212,151,74,.08);margin-bottom:12px`;
+    card.appendChild(divider);
+
+    texts.forEach(t => {
+      const p = document.createElement('p');
+      p.style.cssText = `font-size:.84rem;color:var(--text2);line-height:1.65;margin-bottom:4px;display:flex;gap:8px`;
+      p.innerHTML = `<span style="color:${sec.borderColor};flex-shrink:0">•</span><span>${t}</span>`;
+      card.appendChild(p);
+    });
+
+    con.appendChild(card);
+  });
+}
+
+function renderProducts() {
+  const list = PRODUCTS[ST.realType] || PRODUCTS['안정형'];
+  document.getElementById('pSub').textContent = `"${ST.realType}" 성향 맞춤 추천 아이템입니다.`;
+  document.getElementById('pPartners').style.display = 'block';
+  const con = document.getElementById('pContainer');
+  con.innerHTML = '';
+  list.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'pcard';
+    const imgDiv = document.createElement('div');
+    imgDiv.className = 'pimg';
+    imgDiv.textContent = p.e;
+    const info = document.createElement('div');
+    info.className = 'pinfo';
+    info.innerHTML = `<p class="pcat">${p.cat.toUpperCase()}</p>
+      <p class="pname">${p.name}</p>
+      <a class="cbtn" href="${p.url}" target="_blank" rel="noopener">🛒 쿠팡에서 보기</a>`;
+    card.appendChild(imgDiv);
+    card.appendChild(info);
+    con.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// QUESTIONS
+// ════════════════════════════════════════════════════════
+function initQuestions() {
+  const con = document.getElementById('qContainer');
+  con.innerHTML = '';
+  QUESTIONS.forEach((q, qi) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    let html = `<div class="q-num">Q${qi+1} · ${q.cat}</div>
+      <div class="q-text">${q.text}</div><div class="q-opts">`;
+    q.opts.forEach(o => {
+      html += `<button class="qbtn" id="qb-${q.id}-${o.k}" onclick="selQ('${q.id}','${o.k}')">
+        <span class="qkey">${o.k}</span><span>${o.t}</span></button>`;
+    });
+    html += '</div>';
+    card.innerHTML = html;
+    con.appendChild(card);
+    if (qi < QUESTIONS.length-1) {
+      const d = document.createElement('div'); d.className='qdiv'; con.appendChild(d);
+    }
+  });
+}
+
+function selQ(qid, k) {
+  const q = QUESTIONS.find(q=>q.id===qid);
+  q.opts.forEach(o => {
+    const el = document.getElementById(`qb-${qid}-${o.k}`);
+    if (el) el.classList.remove('sel');
+  });
+  const el = document.getElementById(`qb-${qid}-${k}`);
+  if (el) el.classList.add('sel');
+  ST.qAnswers[qid] = k;
+  const n = Object.keys(ST.qAnswers).length;
+  document.getElementById('progFill').style.width  = (n/5*100)+'%';
+  document.getElementById('progLabel').textContent = `${n} / 5 완료`;
+  document.getElementById('btnType').disabled = n < 5;
+}
+
+// [수정] matchType: TYPE_RULES 전체 순회 + 안전한 폴백
+function matchType(a) {
+  for (const r of TYPE_RULES) {
+    if (r.c(a)) return r.type;
+  }
+  // 폴백: 답변 패턴으로 추가 분기
+  if (a.Q1==='A') return '활력형';
+  if (a.Q2==='C') return '경계형';
+  if (a.Q4==='A') return '교감형';
+  if (a.Q5==='C') return '집착형';
+  if (a.Q4==='C') return '유연형';
+  if (a.Q1==='B') return '적응형';
+  return '안정형';
+}
+
+function goToType() {
+  ST.realType = matchType(ST.qAnswers);
+  renderTypeResult();
+  goTo(4);
+}
+
+// ════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════
+function goTo(step) {
+  if (step===5) renderCompat();
+  if (step===6) renderProducts();
+  ST.step = step;
+  updateStepBar();
+  const map={1:'s1',2:'s2',3:'s3',4:'s4',5:'s5',6:'s6'};
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(map[step]);
+  if (el) { el.classList.add('active'); window.scrollTo({top:0,behavior:'smooth'}); }
+}
+
+function updateStepBar() {
+  const step = ST.step;
+  for (let i=1;i<=6;i++) {
+    const d = document.getElementById('d'+i);
+    if (!d) continue;
+    d.classList.remove('active','done');
+    if (i<step) d.classList.add('done');
+    else if (i===step) d.classList.add('active');
+  }
+  for (let i=1;i<=5;i++) {
+    const l = document.getElementById('l'+i);
+    if (l) l.classList.toggle('done', i<step);
+  }
+}
+
+function resetApp() {
+  ST = {step:1, photoType:null, metrics:null, scores:null, signals:[], qAnswers:{}, realType:null};
+  document.getElementById('prevWrap').style.display   = 'none';
+  document.getElementById('uploadZone').style.display = '';
+  document.getElementById('analyzing').classList.remove('show');
+  document.getElementById('uploadWarn').style.display = '';
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('fileInput').value  = '';
+  ['as1','as2','as3','as4','as5','as6'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('active','done'); }
+  });
+  // [수정] initQuestions()를 다시 호출해 질문 UI도 완전히 초기화
+  initQuestions();
+  document.getElementById('progFill').style.width   = '0%';
+  document.getElementById('progLabel').textContent  = '0 / 5 완료';
+  document.getElementById('btnType').disabled = true;
+  goTo(1);
+}
+
+// ════════════════════════════════════════════════════════
+// UPLOAD
+// ════════════════════════════════════════════════════════
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById('prevImg');
+    img.src = ev.target.result;
+    img.onload = () => {
+      document.getElementById('prevWrap').style.display = 'block';
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('uploadWarn').style.display = 'none';
+      document.getElementById('btnStart').disabled = false;
+    };
+  };
+  reader.readAsDataURL(file);
+});
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+initQuestions();
+updateStepBar();
+</script>
+</body>
+</html>
