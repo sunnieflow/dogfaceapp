@@ -19,7 +19,24 @@
 
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js', { scope: './' })
+  const swCode = `
+const CACHE = 'dogface-v1';
+const FILES = ['./', './index.html', './manifest.json'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html'))));
+});
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, { scope: './' })
     .then(() => console.log('SW 등록 완료'))
     .catch(e => console.log('SW 오류:', e));
 }
@@ -178,6 +195,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .btn-blue:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(61,127,196,.4)}
 .btn-ghost{background:transparent;color:var(--text2);border:1.5px solid rgba(255,255,255,.1)}
 .btn-ghost:hover{border-color:var(--text3);color:var(--text)}
+.btn-skip{background:rgba(100,60,180,.55);color:#d8c8f8;border:1.5px solid rgba(130,80,220,.5);
+  opacity:.85;backdrop-filter:blur(4px)}
+.btn-skip:hover{opacity:1;background:rgba(100,60,180,.75)}
 .warn{font-size:.8rem;color:var(--red);text-align:center;margin-top:8px}
 .reset-wrap{text-align:center;padding:8px 0 16px}
 .reset-link{font-size:.78rem;color:var(--text3);cursor:pointer;text-decoration:underline}
@@ -193,6 +213,10 @@ canvas#cv{display:none}
   <span class="emoji">🐶</span>
   <h1>반려견 관상</h1>
   <p>사진 한 장으로 알아보는 기질 분석</p>
+  <p style="margin-top:10px;font-size:.7rem;color:var(--text3)">
+    <a href="(개인정보처리방침 URL 입력)" target="_blank" rel="noopener"
+       style="color:var(--text3);text-decoration:underline;opacity:.7">개인정보처리방침</a>
+  </p>
 </header>
 
 <div class="step-bar" id="stepBar">
@@ -232,7 +256,8 @@ canvas#cv{display:none}
     </div>
   </div>
   <p class="warn" id="uploadWarn">사진을 먼저 업로드해야 분석을 시작할 수 있습니다.</p>
-  <button class="btn btn-gold" id="btnStart" onclick="startAnalysis()" disabled>사진 분석 시작하기</button>
+  <button class="btn btn-gold" id="btnStart" onclick="startAnalysis()" disabled>📷 사진으로 분석하기</button>
+  <button class="btn btn-skip" onclick="skipPhoto()">사진 없이 시작하기</button>
   <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
 </section>
 
@@ -347,56 +372,16 @@ const PHOTO_DATA = {
 
 // 10성향 행동 기반 데이터
 const REAL_DATA = {
-  개척형: {
-    oh:'양목',
-    liner:'탐색 욕구가 강하고 먼저 움직이는 성향',
-    desc:'개척형 반려견은 새로운 환경에 대한 호기심이 매우 강한 성향이다. 산책 중에도 끊임없이 냄새를 맡으며 이동하고, 익숙한 길보다 새로운 경로에 더 큰 흥미를 보인다. 집 안에서도 소리나 변화에 빠르게 반응하며 직접 확인하려는 행동이 많다. 가만히 있기보다 움직이며 환경을 탐색하려는 특징이 강하다. 다양한 산책과 자극이 제공될 때 가장 안정적인 상태를 유지한다.'
-  },
-  적응형: {
-    oh:'음목',
-    liner:'환경에 맞게 자연스럽게 행동을 조절하는 성향',
-    desc:'적응형 반려견은 상황에 따라 행동을 유연하게 바꾸는 균형 잡힌 성향이다. 새로운 사람이나 환경에서도 과하게 흥분하거나 위축되지 않고 주변을 살피며 잘 적응한다. 보호자의 생활 패턴에도 잘 맞추며 다양한 환경에서 무난하게 지낸다. 극단적인 반응이 적고 안정적인 흐름을 유지하는 특징이 있다.'
-  },
-  활력형: {
-    oh:'양화',
-    liner:'에너지가 높고 활동량이 많은 성향',
-    desc:'활력형 반려견은 에너지가 매우 높고 활동량이 많은 성향이다. 산책 시 빠르게 움직이며 뛰거나 달리는 것을 좋아하고, 장난감이나 소리에 강하게 반응한다. 놀이 욕구가 매우 크며 활동이 부족하면 짖음이나 과잉 행동으로 에너지를 표출하기도 한다. 충분한 운동과 놀이가 반드시 필요한 유형이다.'
-  },
-  교감형: {
-    oh:'음화',
-    liner:'보호자와의 관계를 가장 중요하게 여기는 성향',
-    desc:'교감형 반려견은 보호자와의 정서적 연결을 가장 중요하게 여긴다. 보호자 곁에 머무르려 하고 눈을 맞추거나 몸을 기대며 교류하려는 행동이 많다. 혼자 있는 시간을 힘들어할 수 있으며 보호자의 상태에 민감하게 반응한다. 안정적인 애착 관계가 형성될 때 가장 편안함을 느낀다.'
-  },
-  집착형: {
-    oh:'양토',
-    liner:'특정 대상과 루틴에 강하게 몰입하는 성향',
-    desc:'집착형 반려견은 특정 대상이나 행동에 강하게 몰입하는 성향이다. 보호자, 장난감, 간식 등에 대한 집착이 강하고 반복 행동을 보이는 경우가 많다. 산책 경로나 생활 루틴이 바뀌면 불안해하거나 예민하게 반응할 수 있다. 익숙한 환경과 일정한 패턴 속에서 안정감을 느낀다.'
-  },
-  안정형: {
-    oh:'음토',
-    liner:'차분하고 자극에 크게 흔들리지 않는 성향',
-    desc:'안정형 반려견은 전반적으로 차분하고 여유로운 성향이다. 활동보다는 휴식과 안정된 상태를 선호하며, 산책에서도 급하게 움직이기보다 여유롭게 주변을 살핀다. 환경 변화에도 크게 흔들리지 않고 일정한 리듬을 유지하는 특징이 있다. 조용하고 안정적인 환경에서 가장 편안함을 느낀다.'
-  },
-  지배형: {
-    oh:'양금',
-    liner:'주도권과 영역을 중요하게 여기는 성향',
-    desc:'지배형 반려견은 주도권을 가지려는 성향이 강하다. 산책 중 방향을 스스로 정하려 하거나 다른 개와의 관계에서 우위를 점하려는 행동을 보인다. 자신의 공간이나 자리를 지키려는 의식이 강하며 통제에 저항하는 모습도 나타날 수 있다. 일관된 기준과 훈련이 필요한 유형이다.'
-  },
-  경계형: {
-    oh:'음금',
-    liner:'외부 자극에 민감하고 신중하게 반응하는 성향',
-    desc:'경계형 반려견은 낯선 사람이나 소리, 환경 변화에 민감하게 반응한다. 산책 중에도 주변을 예민하게 살피며 갑작스러운 자극에 쉽게 긴장한다. 처음에는 거리를 두지만 시간이 지나면 천천히 적응한다. 안정적인 환경과 충분한 적응 시간이 필요하다.'
-  },
-  유연형: {
-    oh:'양수',
-    liner:'독립적이면서도 상황에 맞게 자연스럽게 적응하는 성향',
-    desc:'유연형 반려견은 보호자에게 과하게 의존하지 않고 혼자 있는 시간도 편안하게 보내는 성향이다. 환경 변화에도 스트레스를 크게 받지 않으며 상황에 맞게 자연스럽게 적응한다. 필요할 때만 교감하고 그 외에는 안정적으로 자신의 리듬을 유지하는 특징이 있다.'
-  },
-  관찰형: {
-    oh:'음수',
-    liner:'행동보다 관찰을 먼저 하는 신중한 성향',
-    desc:'관찰형 반려견은 즉각적으로 반응하기보다 먼저 상황을 살피는 성향이다. 산책 중에도 멈춰서 주변을 관찰하는 행동이 많고 새로운 환경에서는 적응 속도가 느린 편이다. 자극에 신중하게 반응하며 안정된 환경에서는 매우 차분한 모습을 보인다.'
-  },
+  개척형: { oh:'양목', liner:'호기심이 강하고 먼저 움직이는 성향', desc:'개척형 반려견은 호기심이 매우 강하고 새로운 것을 탐색하려는 욕구가 뚜렷한 성향을 가진다. 낯선 냄새나 소리, 새로운 물건이나 공간을 발견하면 가만히 있기보다 직접 다가가 확인하려는 행동을 보인다. 집 안뿐 아니라 산책 중에도 주변을 적극적으로 탐색하며 자신의 활동 범위를 넓히려는 모습을 자주 보인다. 반복되는 일상보다는 변화와 자극이 있는 환경을 선호하며, 새로운 환경에도 비교적 빠르게 적응하는 편이다. 활동적인 산책과 다양한 자극이 제공될 때 스트레스를 덜 받고 안정된 모습을 유지한다.' },
+  적응형: { oh:'음목', liner:'상황에 맞게 유연하게 반응하는 성향', desc:'적응형 반려견은 상황에 맞게 행동을 조절하는 유연한 성향을 가진다. 새로운 환경이나 낯선 대상 앞에서도 즉각적으로 반응하기보다는 먼저 주변을 살피고 자신에게 안전하다고 판단되면 천천히 적응하는 모습을 보인다. 극단적으로 활발하거나 소극적이지 않고, 환경에 따라 자연스럽게 행동을 바꾸는 균형적인 특징이 있다. 급격한 변화보다는 서서히 적응하는 흐름에서 가장 편안함을 느낀다.' },
+  활력형: { oh:'양화', liner:'에너지가 높고 활동량이 많은 성향', desc:'활력형 반려견은 에너지가 매우 높고 활동량이 많은 성향을 가진다. 집 안에서도 끊임없이 움직이며 뛰고 달리며 빠르게 반응하는 행동을 자주 보인다. 움직이는 물체나 장난감, 소리 등에 강하게 반응하며 놀이와 활동에 대한 욕구가 매우 크다. 충분한 산책과 놀이 시간이 제공될 때 안정감을 느끼며 긍정적인 성향을 유지한다. 에너지가 해소되지 않으면 스트레스로 이어질 수 있기 때문에 꾸준한 활동이 중요하다.' },
+  교감형: { oh:'음화', liner:'관계와 교감을 중요하게 여기는 성향', desc:'교감형 반려견은 사람과의 관계와 정서적 교류를 중요하게 생각하는 성향을 가진다. 보호자와 함께 있는 시간을 선호하며 자연스럽게 다가와 몸을 기대거나 애정을 표현하는 행동을 자주 보인다. 쓰다듬거나 함께 있는 접촉을 통해 안정감을 느끼며 보호자의 움직임에 민감하게 반응한다. 혼자 있는 시간이 길어지면 외로움을 느끼거나 불안해하는 경우도 있다. 보호자와의 꾸준한 교감과 안정적인 관계가 유지될 때 가장 편안한 상태를 보인다.' },
+  집착형: { oh:'양토', liner:'특정 대상과 루틴에 몰입하는 성향', desc:'집착형 반려견은 특정 대상이나 행동에 대한 집중도가 높고 반복적인 패턴을 보이는 성향을 가진다. 보호자, 특정 장소, 혹은 음식과 같은 요소에 강한 애착을 보이며 일정한 루틴을 유지하려는 경향이 있다. 변화가 생기면 불안감을 느끼거나 예민해질 수 있으며, 익숙한 환경을 유지하려는 경향이 강하다. 안정된 생활 패턴과 예측 가능한 환경이 유지될 때 가장 편안함을 느낀다.' },
+  안정형: { oh:'음토', liner:'차분하고 편안한 흐름을 선호하는 성향', desc:'안정형 반려견은 차분하고 여유로운 성향을 가지고 있으며, 빠르게 움직이기보다는 안정된 상태를 유지하려는 특징이 있다. 하루 중 많은 시간을 편안하게 쉬며 보내는 경우가 많고, 급격한 변화나 강한 자극을 부담스러워할 수 있다. 조용한 환경에서 휴식을 취하는 것을 선호하며, 안정적인 공간과 예측 가능한 환경이 제공될 때 스트레스를 덜 느끼고 편안한 모습을 유지한다.' },
+  지배형: { oh:'양금', liner:'영역과 주도권을 중시하는 성향', desc:'지배형 반려견은 영역 의식이 강하고 주도적인 성향을 가진다. 집 안에서도 자신의 위치를 확보하려는 행동을 보이며, 중심이 되는 공간이나 보호자 가까운 자리를 선호하는 경우가 많다. 다른 존재와의 관계에서도 주도권을 잡으려는 경향이 있으며 자신감 있는 행동을 보인다. 질서와 구조가 유지되는 환경에서 안정감을 느끼며, 자신의 위치가 확실할 때 가장 편안한 상태를 유지한다.' },
+  경계형: { oh:'음금', liner:'신중하고 방어적으로 반응하는 성향', desc:'경계형 반려견은 주변 환경에 대해 신중하고 조심스럽게 반응하는 성향을 가진다. 낯선 사람이나 새로운 상황을 마주했을 때 바로 다가가기보다는 일정 거리를 유지하며 관찰하는 행동을 보인다. 갑작스러운 소리나 변화에도 민감하게 반응하며 숨거나 뒤로 물러나는 경우가 많다. 안정적인 환경과 충분한 시간이 주어질 때 점차 신뢰를 형성하고 편안함을 느낀다.' },
+  유연형: { oh:'양수', liner:'독립적이고 자유로운 흐름을 따르는 성향', desc:'유연형 반려견은 독립적이고 자유로운 성향을 가지고 있다. 보호자에게 지나치게 의존하지 않고 스스로 편안한 공간을 찾아 생활하는 경우가 많다. 필요할 때만 다가와 교감을 나누고, 그 외에는 자신의 시간을 보내는 것을 선호한다. 환경 변화에도 비교적 유연하게 대응하며 스스로 균형을 맞추는 능력이 있다. 자신의 공간이 존중될 때 가장 안정된 모습을 보인다.' },
+  관찰형: { oh:'음수', liner:'조용히 살피고 신중하게 판단하는 성향', desc:'관찰형 반려견은 조용하고 신중하게 주변을 살피는 성향을 가진다. 즉각적으로 반응하기보다는 상황을 천천히 관찰하고 판단한 후 행동하는 특징이 있다. 산책 중에도 주변을 주의 깊게 살피며 천천히 움직이는 경우가 많다. 새로운 환경에 적응하는 데 시간이 필요하지만 안정된 환경에서는 차분한 모습을 유지한다.' },
 };
 
 // 궁합 데이터
@@ -418,7 +403,7 @@ const COMPAT_TEXT = {
   bad:   ['생활 리듬과 반응 방식에 차이가 있는 관계입니다.','함께 지낼 때 스트레스가 생길 수 있습니다.','처음에는 분리된 공간에서 지내게 하고, 점차 함께 있는 시간을 늘려주는 것이 좋습니다.'],
 };
 
-// 행동 질문 (5개 → 10성향 모두 커버하도록 확장)
+// 행동 질문
 const QUESTIONS = [
   {id:'Q1', cat:'에너지', text:'평소 활동량이 어느 정도인가요?', opts:[
     {k:'A', t:'산책과 놀이를 매우 좋아하고 활동량이 많다'},
@@ -446,103 +431,74 @@ const QUESTIONS = [
     {k:'C', t:'특정 행동이나 습관을 반복하는 경향이 있다'}
   ]},
 ];
-
-// ── [수정] TYPE_RULES: 10성향 전부 커버
-// 우선순위 순서대로 배치 (위에서 매칭되면 즉시 반환)
 const TYPE_RULES = [
-  // 🔥 활력형: 에너지 높고 반응 빠름
   { type:'활력형',   c: a => a.Q1==='A' && a.Q3==='A' },
-
-  // ⚔️ 경계형: 낯선 것 경계 + 자극 예민
   { type:'경계형',   c: a => a.Q2==='C' && a.Q3==='C' },
-
-  // 🌳 개척형: 에너지 높고 즉흥적 탐색
   { type:'개척형',   c: a => a.Q1==='A' && a.Q5==='A' },
-
-  // 💞 교감형: 보호자 밀착 + 먼저 다가감
   { type:'교감형',   c: a => a.Q4==='A' && a.Q2==='A' },
-
-  // 💞 교감형 보조: 보호자 밀착 + 즉흥적
   { type:'교감형',   c: a => a.Q4==='A' && a.Q5==='A' },
-
-  // 🔒 집착형: 반복 습관 + 보호자 밀착
   { type:'집착형',   c: a => a.Q5==='C' && a.Q4==='A' },
-
-  // 🔒 집착형 보조: 반복 습관 + 패턴 선호
   { type:'집착형',   c: a => a.Q5==='C' && a.Q1==='C' },
-
-  // 👑 지배형: 사교적 + 반응 빠름 + 혼자도 괜찮음
   { type:'지배형',   c: a => a.Q2==='A' && a.Q3==='A' && a.Q4==='C' },
-
-  // 💧 유연형: 혼자도 괜찮음 + 살펴보고 반응
   { type:'유연형',   c: a => a.Q4==='C' && a.Q3==='B' },
-
-  // 💧 유연형 보조: 혼자도 괜찮음 + 패턴 선호
   { type:'유연형',   c: a => a.Q4==='C' && a.Q5==='B' },
-
-  // 🔭 관찰형: 살펴보고 반응 + 경계 + 차분
   { type:'관찰형',   c: a => a.Q3==='B' && a.Q2==='C' },
-
-  // 🔭 관찰형 보조: 살펴보고 반응 + 차분
   { type:'관찰형',   c: a => a.Q3==='B' && a.Q1==='C' },
-
-  // 🌿 적응형: 세 항목 모두 균형
   { type:'적응형',   c: a => a.Q1==='B' && a.Q2==='B' && a.Q3==='B' },
-
-  // 🌿 적응형 보조: 활동 보통 + 적당한 거리
   { type:'적응형',   c: a => a.Q1==='B' && a.Q4==='B' },
 ];
 
+// 추천 상품 (쿠팡 링크는 아래에서 교체)
 const PRODUCTS = {
   개척형:[
-    { cat:'장난감',   name:'터그 장난감 / 테니스공 / 로프 장난감', e:'🎾', url:'https://link.coupang.com/a/ebTH0B' },
-    { cat:'간식',     name:'동결건조 닭가슴살', e:'🍗', url:'https://link.coupang.com/a/ebUYLb' },
-    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+    { cat:'장난감',  name:'터그 장난감 / 공 장난감', e:'🎾', url:'https://link.coupang.com/a/d77hxz' },
+    { cat:'간식',    name:'동결건조 닭가슴살',        e:'🍗', url:'https://link.coupang.com/a/d77sXF' },
+    { cat:'건강용품',name:'관절 영양제',              e:'💊', url:'https://link.coupang.com/a/d77JD2' },
   ],
   적응형:[
-    { cat:'장난감',   name:'삑삑이 인형 장난감', e:'🧸', url:'https://link.coupang.com/a/ebVgWa' },
-    { cat:'간식',     name:'연어 스틱 간식', e:'🐟', url:'https://link.coupang.com/a/ebX5E7' },
-    { cat:'건강용품', name:'종합 비타민', e:'🌿', url:'https://link.coupang.com/a/ebZJr7' },
+    { cat:'장난감',  name:'봉제 인형 장난감',         e:'🧸', url:'https://link.coupang.com/a/d7757t' },
+    { cat:'간식',    name:'연어 스틱 간식',            e:'🐟', url:'https://link.coupang.com/a/d78cJ9' },
+    { cat:'건강용품',name:'면역 영양제',               e:'🌿', url:'https://link.coupang.com/a/d78icb' },
   ],
   활력형:[
-    { cat:'장난감',   name:'프리스비 / 공 발사기 / 공 장난감', e:'🥏', url:'https://link.coupang.com/a/ebYdGB' },
-    { cat:'간식',     name:'칠면조 육포 / 고단백 간식', e:'🦃', url:'https://link.coupang.com/a/ebYh0y' },
-    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+    { cat:'장난감',  name:'공 장난감 / 프리스비',     e:'🥏', url:'https://link.coupang.com/a/d8bYtO' },
+    { cat:'간식',    name:'칠면조 육포',               e:'🦃', url:'https://link.coupang.com/a/d78qYh' },
+    { cat:'건강용품',name:'관절 영양제',               e:'💊', url:'https://link.coupang.com/a/d78xYX' },
   ],
   교감형:[
-    { cat:'장난감',   name:'삑삑이 봉제 인형 장난감', e:'🧸', url:'https://link.coupang.com/a/ebVgWa' },
-    { cat:'간식',     name:'닭가슴살 소프트 간식', e:'🍗', url:'https://link.coupang.com/a/ebYmvY' },
-    { cat:'건강용품', name:'피부·피모 영양제', e:'✨', url:'https://link.coupang.com/a/ebYq06' },
+    { cat:'장난감',  name:'봉제 인형 장난감',         e:'🧸', url:'https://link.coupang.com/a/d7757t' },
+    { cat:'간식',    name:'연어 스틱 간식',            e:'🐟', url:'https://link.coupang.com/a/d78cJ9' },
+    { cat:'건강용품',name:'피부 영양제',               e:'✨', url:'https://link.coupang.com/a/d78SVk' },
   ],
   집착형:[
-    { cat:'장난감',   name:'노즈워크 매트 / 간식 퍼즐 장난감', e:'👃', url:'https://link.coupang.com/a/ebYtNs' },
-    { cat:'간식',     name:'믹스 트릿 간식', e:'🍬', url:'https://link.coupang.com/a/ebYw2w' },
-    { cat:'건강용품', name:'장 건강 유산균', e:'🦠', url:'https://link.coupang.com/a/ebYBhU' },
+    { cat:'장난감',  name:'노즈워크 장난감',          e:'👃', url:'https://link.coupang.com/a/d78YtQ' },
+    { cat:'간식',    name:'믹스 트릿 간식',            e:'🍬', url:'https://link.coupang.com/a/d79jfX' },
+    { cat:'건강용품',name:'장 건강 유산균',            e:'🦠', url:'https://link.coupang.com/a/d79oeE' },
   ],
   안정형:[
-    { cat:'장난감',   name:'고무 씹기 장난감 (콩 타입)', e:'🦷', url:'https://link.coupang.com/a/ebYEs2' },
-    { cat:'간식',     name:'습식 캔 / 부드러운 간식', e:'🥫', url:'https://link.coupang.com/a/ebYGV4' },
-    { cat:'건강용품', name:'종합 면역 영양제', e:'🌿', url:'https://link.coupang.com/a/ebYK4e' },
+    { cat:'장난감',  name:'씹기 장난감 (고무)',        e:'🦷', url:'https://link.coupang.com/a/d79t9f' },
+    { cat:'간식',    name:'습식 간식',                 e:'🥫', url:'https://link.coupang.com/a/d79CgY' },
+    { cat:'건강용품',name:'면역 영양제',               e:'🌿', url:'https://link.coupang.com/a/d78icb' },
   ],
   지배형:[
-    { cat:'장난감',   name:'터그 장난감 / 로프 장난감', e:'🪢', url:'https://link.coupang.com/a/ebTH0B' },
-    { cat:'간식',     name:'닭안심 육포', e:'🍖', url:'https://link.coupang.com/a/ebYRyh' },
-    { cat:'건강용품', name:'관절 영양제', e:'💊', url:'https://link.coupang.com/a/ebU6B2' },
+    { cat:'장난감',  name:'터그 장난감 (줄다리기)',   e:'🪢', url:'https://link.coupang.com/a/d8ceN0' },
+    { cat:'간식',    name:'닭안심 간식',               e:'🍖', url:'https://link.coupang.com/a/d79LPd' },
+    { cat:'건강용품',name:'관절 영양제',               e:'💊', url:'https://link.coupang.com/a/d78xYX' },
   ],
   경계형:[
-    { cat:'장난감',   name:'노즈워크 매트 / 후각 자극 장난감', e:'👃', url:'https://link.coupang.com/a/ebZUq6' },
-    { cat:'간식',     name:'소프트 트릿 (저자극)', e:'🌟', url:'https://link.coupang.com/a/ebYW1F' },
-    { cat:'건강용품', name:'스트레스 완화 영양제', e:'🌸', url:'https://link.coupang.com/a/ebY0uO' },
+    { cat:'장난감',  name:'노즈워크 장난감',          e:'👃', url:'https://link.coupang.com/a/d79WGx' },
+    { cat:'간식',    name:'트릿 간식 (작고 부드러운)', e:'🌟', url:'https://link.coupang.com/a/d79jfX' },
+    { cat:'건강용품',name:'스트레스 완화 영양제',     e:'🌸', url:'https://link.coupang.com/a/d8clwz' },
   ],
   유연형:[
-    { cat:'장난감',   name:'인터랙티브 장난감', e:'🤖', url:'https://link.coupang.com/a/ebY4ol' },
-    { cat:'간식',     name:'연어 큐브 간식', e:'🐠', url:'https://link.coupang.com/a/ebY8Ew' },
-    { cat:'건강용품', name:'스트레스 완화 영양제', e:'🌸', url:'https://link.coupang.com/a/ebY0uO' },
+    { cat:'장난감',  name:'자동 움직임 장난감',       e:'🤖', url:'https://link.coupang.com/a/d794lj' },
+    { cat:'간식',    name:'연어 큐브 간식',            e:'🐠', url:'https://link.coupang.com/a/d8aaLg' },
+    { cat:'건강용품',name:'스트레스 완화 영양제',     e:'🌸', url:'https://link.coupang.com/a/d79WGx' },
   ],
   관찰형:[
-    { cat:'장난감',   name:'쿠션형 침대 / 안정형 담요', e:'🛏️', url:'https://link.coupang.com/a/ebZfBg' },
-    { cat:'간식',     name:'저알러지 간식 (연어/오리)', e:'🍖', url:'https://link.coupang.com/a/ebZjxP' },
-    { cat:'건강용품', name:'눈 건강 영양제', e:'👁️', url:'https://link.coupang.com/a/ebZnme' },
+    { cat:'장난감',  name:'터널 / 숨숨집형 장난감',  e:'🛖', url:'https://link.coupang.com/a/d77hxz' },
+    { cat:'간식',    name:'연어 큐브 간식',            e:'🍣', url:'https://link.coupang.com/a/d8adlH' },
+    { cat:'건강용품',name:'눈 건강 영양제',            e:'👁️', url:'https://link.coupang.com/a/d8ah87' },
   ],
 };
 
@@ -551,11 +507,11 @@ const PRODUCTS = {
 // ════════════════════════════════════════════════════════
 let ST = {
   step:1, photoType:null, metrics:null, scores:null, signals:[],
-  qAnswers:{}, realType:null,
+  qAnswers:{}, realType:null, noPhoto:false,
 };
 
 // ════════════════════════════════════════════════════════
-// CANVAS 분석
+// CANVAS 분석 (반려견 전용: 머즐 + 입 추가)
 // ════════════════════════════════════════════════════════
 function measureImage(imgEl) {
   const cv = document.getElementById('cv');
@@ -571,6 +527,7 @@ function measureImage(imgEl) {
     return px[i]*.299 + px[i+1]*.587 + px[i+2]*.114;
   }
 
+  // 히스토그램 기반 임계값
   const allLums = [];
   for (let y=0; y<H; y+=2)
     for (let x=0; x<W; x+=2) allLums.push(lum(x,y));
@@ -602,7 +559,7 @@ function measureImage(imgEl) {
   const faceHeight = Math.max(fBottom - fTop, 60);
   const faceRatio = +(faceWidth / faceHeight).toFixed(3);
 
-  // ══ 2. 눈 영역 ══
+  // ══ 2. 눈 영역 (얼굴 높이의 25~50%) ══
   const eyeY1 = Math.floor(fTop + faceHeight * 0.25);
   const eyeY2 = Math.floor(fTop + faceHeight * 0.50);
   const eyeX1 = Math.floor(fLeft + faceWidth * 0.08);
@@ -635,14 +592,14 @@ function measureImage(imgEl) {
   const innerEyeDistance = Math.abs(rCx - lCx);
   const eyeDistanceRatio = +(innerEyeDistance / faceWidth).toFixed(3);
 
-  // ══ 4. 귀 높이 ══
-  const earY1  = fTop;
-  const earY2  = Math.floor(fTop + faceHeight * 0.25); // [수정] earY2b → earY2 로 정리
-  const earX1  = Math.floor(fLeft + faceWidth * 0.08);
-  const earX2  = Math.floor(fLeft + faceWidth * 0.92);
-  let earMinY = earY2, earMaxY = earY1;
+  // ══ 4. 귀 높이 (얼굴 상단 0~25%) ══
+  const earY1 = fTop;
+  const earY2b = Math.floor(fTop + faceHeight * 0.25);
+  const earX1 = Math.floor(fLeft + faceWidth * 0.08);
+  const earX2 = Math.floor(fLeft + faceWidth * 0.92);
+  let earMinY = earY2b, earMaxY = earY1;
   let earDarkCount = 0;
-  for (let y=earY1; y<earY2; y++)
+  for (let y=earY1; y<earY2b; y++)
     for (let x=earX1; x<earX2; x++) {
       if (lum(x,y) < darkT) {
         earDarkCount++;
@@ -653,7 +610,7 @@ function measureImage(imgEl) {
   const avgEarHeight = earDarkCount > 5 ? Math.max(earMaxY - earMinY, 1) : 0;
   const earHeightRatio = +(avgEarHeight / faceHeight).toFixed(3);
 
-  // ══ 5. 머즐 길이 ══
+  // ══ 5. 머즐 길이 (얼굴 하단 50~90%) - 반려견 핵심 지표 ══
   const muzzleY1 = Math.floor(fTop + faceHeight * 0.50);
   const muzzleY2 = Math.floor(fTop + faceHeight * 0.90);
   const muzzleX1 = Math.floor(fLeft + faceWidth * 0.20);
@@ -671,7 +628,7 @@ function measureImage(imgEl) {
   const muzzleLength = muzzleDarkCount > 10 ? Math.max(muzzleMaxY - muzzleMinY, 1) : 0;
   const muzzleRatio = +(muzzleLength / faceHeight).toFixed(3);
 
-  // ══ 6. 입 상태 ══
+  // ══ 6. 입 상태 (얼굴 하단 65~90%) ══
   const mouthY1 = Math.floor(fTop + faceHeight * 0.65);
   const mouthY2 = Math.floor(fTop + faceHeight * 0.90);
   const mouthX1 = Math.floor(fLeft + faceWidth * 0.25);
@@ -697,32 +654,39 @@ function measureImage(imgEl) {
   };
 }
 
+// ── 수치 → 등급 변환 (반려견 기준)
 function classifyMetrics(m) {
+  // 눈 열림
   let eyeGrade;
   if      (m.eyeOpenRatio >= 0.34) eyeGrade = 'open';
   else if (m.eyeOpenRatio >= 0.25) eyeGrade = 'normal';
   else                              eyeGrade = 'narrow';
 
+  // 눈 간격
   let distGrade;
   if      (m.eyeDistanceRatio >= 0.26) distGrade = 'wide';
   else if (m.eyeDistanceRatio >= 0.21) distGrade = 'normal';
-  else                                  distGrade = 'narrow';
+  else                                   distGrade = 'narrow';
 
+  // 귀 크기
   let earGrade;
   if      (m.earHeightRatio >= 0.32) earGrade = 'large';
   else if (m.earHeightRatio >= 0.22) earGrade = 'normal';
   else                                earGrade = 'small';
 
+  // 얼굴형
   let faceGrade;
   if      (m.faceRatio <= 0.82) faceGrade = 'long';
   else if (m.faceRatio <= 0.95) faceGrade = 'balanced';
   else                           faceGrade = 'round';
 
+  // 머즐 (반려견 핵심)
   let muzzleGrade;
   if      (m.muzzleRatio >= 0.55) muzzleGrade = 'long';
   else if (m.muzzleRatio >= 0.40) muzzleGrade = 'normal';
   else                             muzzleGrade = 'short';
 
+  // 입 상태
   let mouthGrade;
   if      (m.mouthOpenRatio >= 0.30) mouthGrade = 'open';
   else if (m.mouthOpenRatio >= 0.15) mouthGrade = 'normal';
@@ -731,53 +695,54 @@ function classifyMetrics(m) {
   return { eyeGrade, distGrade, earGrade, faceGrade, muzzleGrade, mouthGrade };
 }
 
+// ── 등급 → 5유형 점수
 function scorePhoto(g) {
   const s = { 개척형:0, 적응형:0, 활력형:0, 안정형:0, 경계형:0 };
 
-  if (g.muzzleGrade === 'long')        { s['개척형'] += 1; }
-  else if (g.muzzleGrade === 'normal') { s['적응형'] += 2; }
-  else                                 { s['안정형'] += 1; s['경계형'] += 1; }
+  // 머즐 길이 (핵심 지표)
+  if      (g.muzzleGrade === 'long')   { s['개척형']+=2; }
+  else if (g.muzzleGrade === 'normal') { s['적응형']+=2; }
+  else /* short */                      { s['안정형']+=2; }
 
-  if (g.mouthGrade === 'open')        { s['활력형'] += 4; }
-  else if (g.mouthGrade === 'normal') { s['적응형'] += 1; }
-  else                                { s['경계형'] += 2; s['안정형'] += 1; }
+  // 입 상태
+  if      (g.mouthGrade === 'open')   { s['활력형']+=2; s['개척형']+=1; }
+  else if (g.mouthGrade === 'normal') { s['적응형']+=1; }
+  else /* closed */                    { s['안정형']+=1; s['경계형']+=1; }
 
-  if (g.eyeGrade === 'open')        { s['활력형'] += 2; }
-  else if (g.eyeGrade === 'normal') { s['적응형'] += 1; }
-  else                              { s['경계형'] += 4; }
+  // 눈 열림
+  if      (g.eyeGrade === 'open')   { s['개척형']+=1; s['활력형']+=1; }
+  else if (g.eyeGrade === 'normal') { s['적응형']+=1; }
+  else /* narrow */                  { s['경계형']+=2; }
 
-  if (g.distGrade === 'wide')        { s['개척형'] += 1; s['활력형'] += 1; }
-  else if (g.distGrade === 'normal') { s['적응형'] += 1; }
-  else                               { s['경계형'] += 3; }
+  // 눈 간격
+  if      (g.distGrade === 'wide')   { s['활력형']+=1; s['개척형']+=1; }
+  else if (g.distGrade === 'normal') { s['적응형']+=1; }
+  else /* narrow */                   { s['경계형']+=1; }
 
-  if (g.faceGrade === 'long')        { s['개척형'] += 1; }
-  else if (g.faceGrade === 'balanced') { s['적응형'] += 2; }
-  else                               { s['안정형'] += 1; }
+  // 얼굴형
+  if      (g.faceGrade === 'long')     { s['개척형']+=1; }
+  else if (g.faceGrade === 'balanced') { s['적응형']+=2; }
+  else /* round */                      { s['안정형']+=1; }
 
-  if (g.earGrade === 'large')        { s['경계형'] += 2; }
-  else if (g.earGrade === 'normal')  { s['적응형'] += 1; }
-  else                               { s['안정형'] += 1; }
-
-  if (g.mouthGrade === 'open' && g.eyeGrade === 'open')          { s['활력형'] += 2; }
-  if (g.eyeGrade === 'narrow' && g.mouthGrade === 'closed')       { s['경계형'] += 2; }
-  if (g.distGrade === 'narrow' && g.earGrade === 'large')         { s['경계형'] += 2; }
-  if (g.faceGrade === 'round' && g.muzzleGrade === 'short' && g.mouthGrade === 'closed') { s['안정형'] += 2; }
+  // 귀 크기
+  if      (g.earGrade === 'large')  { s['개척형']+=1; s['경계형']+=1; }
+  else if (g.earGrade === 'normal') { s['적응형']+=1; }
+  else /* small */                   { s['안정형']+=1; }
 
   return s;
 }
 
-const PRIORITY = ['활력형','경계형','적응형','안정형','개척형'];
-
+// ── 최고점 → 유형
+const PRIORITY = ['경계형','개척형','활력형','적응형','안정형'];
 function resolveType(scores) {
   const max = Math.max(...Object.values(scores));
   const tied = Object.keys(scores).filter(t => scores[t] === max);
   if (tied.length === 1) return tied[0];
-  for (const t of PRIORITY) {
-    if (tied.includes(t)) return t;
-  }
+  for (const t of PRIORITY) if (tied.includes(t)) return t;
   return tied[0];
 }
 
+// ── 판정 근거 문장 생성
 function makeSignals(g) {
   const eyeMap    = { open:'눈이 크게 열림 (활발형)', normal:'눈 열림 보통', narrow:'눈이 좁고 긴장형' };
   const distMap   = { wide:'눈 간격 넓음 (사교적)', normal:'눈 간격 보통', narrow:'눈 간격 응축형' };
@@ -905,14 +870,11 @@ function renderTypeResult() {
   document.getElementById('r4type').innerHTML  = t + `<span class="ohaeng">${d.oh}</span>`;
   document.getElementById('r4liner').textContent = d.liner;
   document.getElementById('r4desc').textContent  = d.desc;
-
-  // [수정] 사진 유형과 행동 유형이 같을 때 / 다를 때 문구 분기
-  const compareEl = document.getElementById('r4compare');
-  if (ST.photoType === ST.realType) {
-    compareEl.innerHTML =
-      `사진 관상(<strong>${ST.photoType}</strong>)과 행동 기반 성향(<strong>${t}</strong>)이 일치합니다. 겉과 속이 같은 솔직한 성격입니다.`;
+  if (ST.noPhoto) {
+    document.getElementById('r4compare').innerHTML =
+      `사진 분석 없이 행동 질문 기반으로 <strong>${t}</strong> 성향으로 판별되었습니다.`;
   } else {
-    compareEl.innerHTML =
+    document.getElementById('r4compare').innerHTML =
       `사진상으로는 <strong>${ST.photoType}</strong>으로 보였지만 실제 행동 기준으로는 <strong>${t}</strong>에 가깝습니다.`;
   }
 }
@@ -932,13 +894,13 @@ function renderCompat() {
   con.innerHTML = '';
 
   const sections = [
-    { key:'good',   score:'90점', icon:'✨', label:'좋음', borderColor:'#4caf82', bgColor:'rgba(76,175,130,.10)'  },
-    { key:'normal', score:'70점', icon:'🌿', label:'보통', borderColor:'#d4974a', bgColor:'rgba(212,151,74,.10)' },
-    { key:'bad',    score:'40점', icon:'⚠️', label:'주의', borderColor:'#e07060', bgColor:'rgba(224,112,96,.10)'  },
+    { key:'good',  score:'90점', icon:'✨', label:'좋음',  borderColor:'#4caf82', bgColor:'rgba(76,175,130,.10)'  },
+    { key:'normal',score:'70점', icon:'🌿', label:'보통',  borderColor:'#d4974a', bgColor:'rgba(212,151,74,.10)' },
+    { key:'bad',   score:'40점', icon:'⚠️', label:'주의',  borderColor:'#e07060', bgColor:'rgba(224,112,96,.10)'  },
   ];
 
   sections.forEach(sec => {
-    const list  = data[sec.key] || [];
+    const list = data[sec.key] || [];
     const texts = COMPAT_TEXT[sec.key] || [];
 
     const card = document.createElement('div');
@@ -1052,12 +1014,8 @@ function selQ(qid, k) {
   document.getElementById('btnType').disabled = n < 5;
 }
 
-// [수정] matchType: TYPE_RULES 전체 순회 + 안전한 폴백
 function matchType(a) {
-  for (const r of TYPE_RULES) {
-    if (r.c(a)) return r.type;
-  }
-  // 폴백: 답변 패턴으로 추가 분기
+  for (const r of TYPE_RULES) if (r.c(a)) return r.type;
   if (a.Q1==='A') return '활력형';
   if (a.Q2==='C') return '경계형';
   if (a.Q4==='A') return '교감형';
@@ -1093,6 +1051,12 @@ function updateStepBar() {
     const d = document.getElementById('d'+i);
     if (!d) continue;
     d.classList.remove('active','done');
+    // noPhoto 모드: STEP 2 dot을 회색으로 (건너뜀 표시)
+    if (ST.noPhoto && i===2) {
+      d.style.opacity = '0.35';
+    } else {
+      d.style.opacity = '';
+    }
     if (i<step) d.classList.add('done');
     else if (i===step) d.classList.add('active');
   }
@@ -1102,20 +1066,25 @@ function updateStepBar() {
   }
 }
 
+function skipPhoto() {
+  ST.noPhoto = true;
+  ST.photoType = null;
+  goTo(3);
+}
+
 function resetApp() {
-  ST = {step:1, photoType:null, metrics:null, scores:null, signals:[], qAnswers:{}, realType:null};
+  ST = {step:1,photoType:null,metrics:null,scores:null,signals:[],qAnswers:{},realType:null,noPhoto:false};
   document.getElementById('prevWrap').style.display   = 'none';
   document.getElementById('uploadZone').style.display = '';
   document.getElementById('analyzing').classList.remove('show');
   document.getElementById('uploadWarn').style.display = '';
   document.getElementById('btnStart').disabled = true;
   document.getElementById('fileInput').value  = '';
-  ['as1','as2','as3','as4','as5','as6'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.classList.remove('active','done'); }
+  ['as1','as2','as3','as4','as5','as6'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('active','done');}
   });
-  // [수정] initQuestions()를 다시 호출해 질문 UI도 완전히 초기화
-  initQuestions();
+  document.querySelectorAll('.qbtn').forEach(b=>b.classList.remove('sel'));
   document.getElementById('progFill').style.width   = '0%';
   document.getElementById('progLabel').textContent  = '0 / 5 완료';
   document.getElementById('btnType').disabled = true;
