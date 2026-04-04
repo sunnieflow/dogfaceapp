@@ -6,7 +6,7 @@
 <title>반려견 관상 🐶</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0d1117">A
+<meta name="theme-color" content="#0d1117">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,7 +20,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'dogface-v1';
+const CACHE = 'dogface-v3';
 const FILES = ['./', './index.html', './manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
@@ -214,7 +214,7 @@ canvas#cv{display:none}
   <h1>반려견 관상</h1>
   <p>사진 한 장으로 알아보는 기질 분석</p>
   <p style="margin-top:10px;font-size:.7rem;color:var(--text3)">
-    <a href="https://sunnieflow.github.io/dogfaceapp/dogprivacy.html" target="_blank" rel="noopener"
+    <a href="https://sunnieflow.github.io/dogfaceapp/privacy.html" target="_blank" rel="noopener"
        style="color:var(--text3);text-decoration:underline;opacity:.7">개인정보처리방침</a>
   </p>
 </header>
