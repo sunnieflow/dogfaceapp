@@ -20,7 +20,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const swCode = `
-const CACHE = 'dogface-v3';
+const CACHE = 'dogface-v5';
 const FILES = ['./', './index.html', './manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
