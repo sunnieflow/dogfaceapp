@@ -1053,23 +1053,27 @@ function skipPhoto() {
   goTo(3);
 }
 
-function shareResult() {
+async function shareResult() {
   const type = ST.realType || ST.photoType;
   const d = type ? REAL_DATA[type] : null;
   const liner = d ? d.liner : '';
-  const shareUrl = 'https://sunnieflow.github.io/dogfaceapp/';
-
-  if (navigator.share) {
-    navigator.share({
-      title: `🐶 우리 강아지는 ${type || ''}형!`,
-      url: shareUrl
-    })
-    .then(() => console.log('공유 완료'))
-    .catch(err => {
-      if (err.name !== 'AbortError') fallbackCopy(shareUrl);
-    });
-  } else {
-    fallbackCopy(shareUrl);
+  const shareData = {
+    title: '반려견 관상 🐶',
+    text: `🐶 우리 강아지 관상 결과!\n성향: ${type}\n${liner}`,
+    url: 'https://sunnieflow.github.io/dogfaceapp/'
+  };
+  try {
+    await navigator.share(shareData);
+  } catch(err) {
+    if (err.name !== 'AbortError') {
+      const el = document.createElement('textarea');
+      el.value = shareData.text + '\n' + shareData.url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      alert('복사되었습니다! 카카오톡에 붙여넣기 해주세요 🐾');
+    }
   }
 }
 
