@@ -294,7 +294,6 @@ canvas#cv{display:none}
     <div class="compare-box" id="r4compare">-</div>
   </div>
   <button class="btn btn-blue" onclick="goTo(5)">궁합 보기 →</button>
-  <button class="btn btn-share" onclick="shareResult()">🐾 결과 공유하기</button>
   <div class="reset-wrap"><span class="reset-link" onclick="resetApp()">처음부터 다시하기</span></div>
 </section>
 
@@ -1055,25 +1054,39 @@ function skipPhoto() {
 }
 
 function shareResult() {
-  const type = ST.realType || ST.photoType || '알 수 없음';
-  const d = REAL_DATA[type];
+  const type = ST.realType || ST.photoType;
+  const d = type ? REAL_DATA[type] : null;
   const liner = d ? d.liner : '';
-  const text = `🐶 우리 강아지 반려견 관상 결과\n\n성향: ${type}\n${liner}\n\n사진 한 장으로 알아보는 반려견 기질 분석\n👉 https://sunnieflow.github.io/dogfaceapp/`;
+  const shareUrl = 'https://sunnieflow.github.io/dogfaceapp/';
 
   if (navigator.share) {
-    navigator.share({ title: '반려견 관상', text: text, url: 'https://sunnieflow.github.io/dogfaceapp/' })
-      .catch(() => copyToClipboard(text));
+    navigator.share({
+      title: `🐶 우리 강아지는 ${type || ''}형!`,
+      url: shareUrl
+    })
+    .then(() => console.log('공유 완료'))
+    .catch(err => {
+      if (err.name !== 'AbortError') fallbackCopy(shareUrl);
+    });
   } else {
-    copyToClipboard(text);
+    fallbackCopy(shareUrl);
   }
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert('링크가 복사되었습니다! 친구에게 공유해보세요 🐾');
-  }).catch(() => {
+function fallbackCopy(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.position = 'fixed';
+  el.style.opacity = '0';
+  document.body.appendChild(el);
+  el.select();
+  try {
+    document.execCommand('copy');
+    alert('클립보드에 복사되었습니다! 카카오톡 등에 붙여넣기 해주세요 🐾');
+  } catch(e) {
     alert('공유 링크: https://sunnieflow.github.io/dogfaceapp/');
-  });
+  }
+  document.body.removeChild(el);
 }
 
 function resetApp() {
