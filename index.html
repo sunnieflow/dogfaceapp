@@ -184,11 +184,35 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .reset-link{font-size:.78rem;color:var(--text3);cursor:pointer;text-decoration:underline}
 .reset-link:hover{color:var(--text2)}
 canvas#cv{display:none}
+/* 설치 버튼 */
+.install-wrap{display:none;margin:0 20px 16px}
+.btn-install{background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;
+  box-shadow:0 4px 20px rgba(61,127,196,.3);margin-top:0}
+.ios-guide{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;
+  align-items:center;justify-content:center;padding:24px}
+.ios-guide.show{display:flex}
+.ios-guide .box{background:var(--card);border:1px solid rgba(212,151,74,.3);border-radius:var(--radius);
+  padding:24px;max-width:340px;font-size:.88rem;line-height:1.8;color:var(--text2);text-align:center}
+.ios-guide .box strong{color:var(--accent2)}
+.ios-guide .box button{margin-top:14px}
 </style>
 </head>
 <body>
 <canvas id="cv"></canvas>
 <div class="app-wrap">
+
+<div class="install-wrap" id="installWrap">
+  <button class="btn btn-install" id="installBtn">📲 홈 화면에 추가 (앱처럼 사용)</button>
+</div>
+
+<div class="ios-guide" id="iosGuide">
+  <div class="box">
+    <p>아이폰에서는 <strong>Safari</strong>에서<br>
+    아래 <strong>공유 버튼(□↑)</strong>을 누른 뒤<br>
+    <strong>"홈 화면에 추가"</strong>를 선택해 주세요.</p>
+    <button class="btn btn-gold" onclick="document.getElementById('iosGuide').classList.remove('show')">확인</button>
+  </div>
+</div>
 
 <header class="app-header">
   <span class="emoji">🐶</span>
@@ -1148,7 +1172,39 @@ if ('serviceWorker' in navigator) {
       .then(() => console.log('SW 등록 완료'))
       .catch(e => console.log('SW 오류:', e));
   });
-}  
+}
+
+// ── 홈 화면에 추가 버튼 ──
+let deferredPrompt = null;
+const installWrap = document.getElementById('installWrap');
+const installBtn  = document.getElementById('installBtn');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+if (!isStandalone) {
+  if (isIOS) {
+    installWrap.style.display = 'block';
+  }
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installWrap.style.display = 'block';
+  });
+}
+window.addEventListener('appinstalled', () => {
+  installWrap.style.display = 'none';
+  deferredPrompt = null;
+});
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') installWrap.style.display = 'none';
+  } else if (isIOS) {
+    document.getElementById('iosGuide').classList.add('show');
+  }
+});
 </script>
 </body>
 </html>
