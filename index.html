@@ -1140,6 +1140,15 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
 // ════════════════════════════════════════════════════════
 initQuestions();
 updateStepBar();
+
+// ── PWA: 서비스워커 등록 ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('SW 등록 완료'))
+      .catch(e => console.log('SW 오류:', e));
+  });
+}  
 </script>
 </body>
 </html>
